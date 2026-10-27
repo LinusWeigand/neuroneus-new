@@ -154,8 +154,15 @@ export async function prepareApp(
       Object.assign(files, await gameKitFiles({ render, theme, meta: { title: direction?.title ?? p.name, tagline: direction?.tagline ?? "" } }));
       for (const old of ["game/loop.ts", "components/game-canvas.tsx"]) delete files[old];
       if (files["package.json"]) files["package.json"] = withGameDependencies(files["package.json"], render);
-    } else if (designChanged) {
-      Object.assign(files, await gameThemeFiles(render, theme));
+    } else {
+      if (designChanged) Object.assign(files, await gameThemeFiles(render, theme));
+      // Kit upgrades: new kit modules arrive in games built on an older kit, and the kit guide
+      // stays current. Files the game already has are never touched.
+      const kit = await gameKitFiles({ render, theme, meta: { title: p.name, tagline: "" } });
+      for (const [path, content] of Object.entries(kit)) {
+        if (path.startsWith("docs/")) files[path] = content;
+        else if (path.startsWith("game/kit/")) files[path] ??= content;
+      }
     }
     if (direction) files["docs/ART-DIRECTION.md"] = direction.markdown;
   } else {

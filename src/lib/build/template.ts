@@ -376,8 +376,9 @@ The game itself lives in ${input.kit === "2d" ? "\`game/scenes/\`" : "\`game/wor
 \`docs/ART-DIRECTION.md\` says what everything looks like; \`game/theme.ts\` has the tokens.
 - Colors only from \`THEME.palette\`, by role: primary = the player, danger = enemies and hazards,
   accent = rewards, secondary = world accents, good = health. Never hard-code colors.
-- Every sprite or mesh comes from the kit's art primitives (shaded, outlined, highlighted),
-  never plain rectangles, circles or boxes, never emoji.
+- Every sprite or mesh comes from the kit's art (shaded, outlined, highlighted), never plain
+  rectangles, circles or boxes, never emoji. What the spec names must be recognizable at first
+  glance: use the kit's animals, food and plants, or draw the thing with its defining features.
 - No external image, model or audio files: the kit draws and synthesizes everything.
 
 ${

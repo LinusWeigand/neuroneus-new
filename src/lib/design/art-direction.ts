@@ -69,7 +69,7 @@ export async function writeArtDirection(
   const { theme, render } = input;
   const blocks =
     render === "2d"
-      ? "2D kit (Phaser): sprites from game/kit/textures.ts: creature (character with eyes; mood angry for enemies), orb, gem, star, heart, box (platforms, walls, tiles), ship, spikes, ring, cloud, glow, spark, chip, custom (own canvas drawing with the same shading). Effects in game/kit/fx.ts: juice.collect/hit/explode/celebrate, fx.shake/flash/hitStop/burst/sparks/confetti/shockwave/floatText/pop/squash/blink/trail/aura/bob/punch. Backdrop from the theme recipe (sky, sun or moon, silhouettes, particles). Sizes in U (1% of the screen's short side)."
+      ? "2D kit (Phaser): recognizable subjects from game/kit/sprites.ts: animal (bunny, fox, cat, bear, mouse, frog, bird, eagle; natural fur, an accent scarf in a role color, mood angry, pose run or dive), carrot, apple, mushroom, bush, tree (round or pine), flower, rock, burrow, grass. Generic sprites from game/kit/textures.ts: creature (blob character with eyes), orb, gem, star, heart, box (platforms, walls, tiles), ship, spikes, ring, cloud, glow, spark, chip, custom (own canvas drawing with the same shading). Effects in game/kit/fx.ts: juice.collect/hit/explode/celebrate, fx.shake/flash/hitStop/burst/sparks/confetti/shockwave/floatText/pop/squash/blink/trail/aura/bob/punch. Backdrop from the theme recipe (sky, sun or moon, silhouettes, particles). Sizes in U (1% of the screen's short side)."
       : "3D kit (Three.js): meshes from game/kit/models.ts: character (rounded body with eyes; mood angry for enemies), gem, coin, crate, rock, tree, spikes, platform, plus materials.toon/standard/glow from the palette. Lighting, sky, fog, shadows and bloom come from the theme (game/kit/stage.ts). Effects in game/kit/fx.ts: juice.collect/hit/explode, fx.burst/shake/pop/squash/flash/floatText. Sizes in world units (1 = a character's height).";
   const model = structuredModelId();
   try {
@@ -91,7 +91,7 @@ What the engineer builds with: ${blocks}
 
 markdown: Markdown, at most 4500 characters, these sections:
 ## Look: one or two sentences: the feeling, the shape language (round and soft, sharp and angular, chunky...), the perspective.
-## Cast: every character, enemy, item and obstacle in this game: the kit building block, the palette role, the size, idle motion and one detail that gives it character.
+## Cast: every character, enemy, item and obstacle in this game: the kit building block, the palette role, the size, idle motion and one detail that gives it character. Everything the spec names must be recognizable at first glance: real animals and objects use the matching kit subject (or are drawn with their defining features), never a generic blob, gem or ball standing in for them.
 ## World: the backdrop and the play area: ground, platforms or arena, layers, what scrolls, decoration that makes it feel alive.
 ## Feedback: every game event (moving, jumping, shooting, collecting, getting hit, combos, levelling up, losing, winning) mapped to the kit effects and sound that fire, so nothing happens silently.
 ## Motion: how movement feels (acceleration, weight, snappiness), speeds in kit units, easing, timings of key animations.

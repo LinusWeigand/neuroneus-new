@@ -15,7 +15,7 @@ game itself, at the same quality. Read `docs/ART-DIRECTION.md` for what it shoul
 | `game/state.ts` | What the UI shows: `setHud`, `addScore`, `toast`, `gameOver`, `getState`, `isPlaying`. | no |
 | `game/input.ts` | `input.axis()`, `input.down(a)`, `input.pressed(a)`; actions left/right/up/down/action/alt/pause. | no |
 | `game/audio.ts` | `sfx(name)` and `music.start/stop` (the shell runs music). | no |
-| `game/kit/*` | textures, fx/juice, backdrop, post, color, view. | extend |
+| `game/kit/*` | sprites (animals, food, plants), textures, fx/juice, backdrop, post, color, view. | add, don't edit |
 | `components/game/*` | The shell (menus, HUD, touch controls). Restyle via CSS tokens only. | rarely |
 
 `game/` code is loaded only in the browser (the shell imports `game/main.ts` dynamically).
@@ -28,9 +28,20 @@ The world is a fixed `VIEW` (1280×720 landscape, 720×1280 portrait, low-res fo
 scaled to fit the screen. `U` = 1% of the shorter side. Size and speed everything in `U`
 (`radius: 4 * U`, `speed: 40 * U` px/s) so the game looks right in every theme.
 
-## Art: never plain shapes
+## Art: recognizable, never plain shapes
 
-Make every sprite with `game/kit/textures.ts` (shaded, outlined, highlighted in the theme's style):
+Everything the spec names must be recognizable at first glance: a bunny has long ears and a
+cotton tail, a fox a pointed snout and a bushy tail, a carrot is an orange taper with green
+leaves. Use `game/kit/sprites.ts` for these:
+`animal(scene, { kind, size, mood?, pose?, accent?, color? })` with kind bunny, fox, cat, bear,
+mouse, frog, bird or eagle (natural fur colors; `accent` adds a scarf in a role color, e.g. the
+player's `primary`; `mood: "angry"` for enemies; `pose: "run"`, and `"dive"` for eagles; flip with
+`setFlipX(true)` to face left), plus `carrot`, `apple`, `mushroom`, `bush` (with `berries`), `tree`
+(`round` or `pine`), `flower`, `rock`, `burrow`, `grass`. Never stand in a gem for a carrot or a
+ball for an animal. Anything else: draw it with `textures.custom` in the same style (shaded,
+outlined, highlight, its defining features exaggerated).
+
+Abstract and generic things come from `game/kit/textures.ts`:
 `creature` (a character with eyes, `mood: "angry"` for enemies), `orb`, `gem`, `star`, `heart`,
 `box` (platforms, walls, tiles), `ship`, `spikes`, `ring`, `cloud`, `glow`, `spark`, `chip`, and
 `custom(scene, key, w, h, draw)` for anything else, drawn with gradients, an outline and a
