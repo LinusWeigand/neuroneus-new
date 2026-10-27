@@ -138,7 +138,7 @@ ${SCOPE}
 You are ${agent.name}, the ${agent.role}. Your area: ${agent.owns.join(", ")}.
 Your stance: ${agent.stance}
 
-${mode === "answer" ? ANSWER_VOICE : huddleVoice(ctx)}
+${mode === "answer" || mode === "ack" ? ANSWER_VOICE : huddleVoice(ctx)}
 - Plain text only. No code formatting, no headings, no bullet lists, no emojis.
 - Write in ${ctx.language}.
 - Don't prefix your message with your name.`;

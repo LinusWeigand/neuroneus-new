@@ -538,8 +538,8 @@ async function speak(args: {
   let text = "";
   let pending = "";
   let prefixChecked = false;
-  // Answers are what the human waits for: they get a model that reasons a little.
-  const answering = mode === "answer";
+  // Answers and confirmations are what the human waits for: a model that reasons a little.
+  const answering = mode === "answer" || mode === "ack";
   const model = answering ? answerModelId() : chatModelId();
   try {
     const result = streamText({
