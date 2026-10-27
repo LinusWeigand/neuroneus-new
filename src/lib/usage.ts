@@ -7,7 +7,7 @@ import type { UsagePurpose, UsageSummary } from "@/lib/types";
 // Every model call is recorded, so cost has a source: which project, what for, which model.
 // Build calls also count against their round's token budget (builds.tokens).
 
-const CHAT_PURPOSES: UsagePurpose[] = ["chat", "huddle_plan", "card", "spec"];
+const CHAT_PURPOSES: UsagePurpose[] = ["chat", "route", "huddle_plan", "card", "spec"];
 
 export type UsageScope = { projectId: string; buildId?: string | null };
 

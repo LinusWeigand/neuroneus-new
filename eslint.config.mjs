@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // The game kit is code for the generated apps (with their own dependencies), not this app.
+    "templates/**",
   ]),
 ]);
 

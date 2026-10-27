@@ -130,9 +130,10 @@ export type BuildDTO = {
   updatedAt: string;
 };
 
-/** What a model call was for. chat/plan_huddle/card/spec run in the group chat; the rest build. */
+/** What a model call was for. chat/route/huddle_plan/card/spec run in the group chat; the rest build. */
 export type UsagePurpose =
   | "chat"
+  | "route"
   | "huddle_plan"
   | "card"
   | "spec"

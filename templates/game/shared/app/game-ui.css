@@ -1,0 +1,506 @@
+/* ─── Game UI ──────────────────────────────────────────────────────────────
+   Everything around the canvas, built from the theme tokens above. Menus and HUD belong to
+   the game's world: no dashboard look, no default fonts. */
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior: none;
+}
+
+.g-root {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background:
+    radial-gradient(120% 90% at 50% 0%, var(--bg2) 0%, transparent 70%),
+    var(--bg);
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+}
+
+.g-canvas {
+  position: absolute;
+  inset: 0;
+}
+.g-canvas canvas {
+  display: block;
+  outline: none;
+}
+
+/* Screen finish: vignette, scanlines and film grain, tuned per theme. */
+.g-finish {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse at center, transparent 50%, rgb(0 0 0 / var(--fx-vignette)) 100%);
+}
+.g-finish::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: var(--fx-scanlines);
+  background: repeating-linear-gradient(0deg, rgb(0 0 0 / 0.35) 0 1px, transparent 1px 3px);
+}
+.g-finish::after {
+  content: "";
+  position: absolute;
+  inset: -50%;
+  opacity: var(--fx-grain);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  mix-blend-mode: overlay;
+  animation: g-grain 0.9s steps(4) infinite;
+}
+
+/* ─── Screens ─── */
+
+.g-screen {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  text-align: center;
+}
+.g-dim {
+  background: color-mix(in oklab, var(--bg) 55%, transparent);
+  backdrop-filter: blur(6px) saturate(1.1);
+  -webkit-backdrop-filter: blur(6px) saturate(1.1);
+}
+.g-title-screen {
+  background: linear-gradient(180deg, color-mix(in oklab, var(--bg) 10%, transparent) 0%, color-mix(in oklab, var(--bg) 72%, transparent) 100%);
+}
+.g-title-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.1rem;
+}
+
+.g-title {
+  margin: 0;
+  font-family: var(--font-display), system-ui, sans-serif;
+  font-size: clamp(2.6rem, 10vw, 6.8rem);
+  line-height: 0.95;
+  letter-spacing: var(--title-tracking);
+  text-transform: var(--title-case);
+  background: linear-gradient(180deg, var(--ink) 35%, var(--primary) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 0 calc(var(--glow) * 22px) color-mix(in oklab, var(--primary) 65%, transparent))
+    drop-shadow(0 6px 0 color-mix(in oklab, var(--bg) 70%, black));
+  animation: g-float 5s ease-in-out infinite;
+  text-wrap: balance;
+}
+.g-tagline {
+  margin: 0 0 0.6rem;
+  max-width: 34ch;
+  font-size: clamp(1rem, 2.4vw, 1.25rem);
+  color: var(--muted);
+  text-wrap: balance;
+}
+.g-heading {
+  margin: 0 0 1.25rem;
+  font-family: var(--font-display), system-ui, sans-serif;
+  font-size: 2rem;
+  text-transform: var(--title-case);
+  letter-spacing: var(--title-tracking);
+}
+.g-eyebrow {
+  margin: 0;
+  font-family: var(--font-display), system-ui, sans-serif;
+  font-size: 0.95rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--secondary);
+}
+.g-score-big {
+  margin: 0.2rem 0 0.4rem;
+  font-family: var(--font-display), system-ui, sans-serif;
+  font-size: clamp(3.2rem, 12vw, 5rem);
+  line-height: 1;
+  color: var(--accent);
+  text-shadow: 0 0 calc(var(--glow) * 26px) color-mix(in oklab, var(--accent) 70%, transparent);
+  font-variant-numeric: tabular-nums;
+}
+.g-badge {
+  display: inline-block;
+  margin: 0;
+  padding: 0.3rem 0.9rem;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-family: var(--font-display), system-ui, sans-serif;
+  font-size: 0.95rem;
+  animation: g-pulse 1.2s ease-in-out infinite;
+}
+.g-muted {
+  margin: 0;
+  color: var(--muted);
+}
+.g-hint {
+  margin: 1rem 0 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+  opacity: 0.8;
+}
+.g-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+}
+
+.g-panel {
+  width: min(92vw, 420px);
+  padding: 2rem 1.75rem;
+  border-radius: calc(var(--radius) * 1.5);
+  background: var(--panel-bg);
+  border: var(--panel-border);
+  box-shadow:
+    0 30px 80px -24px rgb(0 0 0 / 0.65),
+    inset 0 1px 0 color-mix(in oklab, var(--ink) 10%, transparent);
+  backdrop-filter: blur(var(--panel-blur));
+  -webkit-backdrop-filter: blur(var(--panel-blur));
+}
+
+/* ─── Buttons ─── */
+
+.g-btn {
+  appearance: none;
+  cursor: pointer;
+  padding: 0.85rem 1.6rem;
+  border-radius: var(--radius);
+  border: 2px solid color-mix(in oklab, var(--ink) 22%, transparent);
+  background: color-mix(in oklab, var(--surface) 85%, transparent);
+  color: var(--ink);
+  font-family: var(--font-display), system-ui, sans-serif;
+  font-size: 1.05rem;
+  letter-spacing: 0.04em;
+  text-transform: var(--title-case);
+  box-shadow: 0 5px 0 color-mix(in oklab, var(--surface) 55%, black);
+  transition:
+    transform 0.12s cubic-bezier(0.3, 1.6, 0.5, 1),
+    box-shadow 0.12s ease,
+    filter 0.15s ease;
+}
+.g-btn:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.08);
+}
+.g-btn:active {
+  transform: translateY(4px);
+  box-shadow: 0 1px 0 color-mix(in oklab, var(--surface) 55%, black);
+}
+.g-btn:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+}
+.g-btn-primary {
+  border-color: transparent;
+  background: var(--primary);
+  color: var(--on-primary);
+  box-shadow:
+    0 5px 0 color-mix(in oklab, var(--primary) 55%, black),
+    0 0 calc(var(--glow) * 34px) color-mix(in oklab, var(--primary) 55%, transparent);
+}
+.g-btn-primary:active {
+  box-shadow:
+    0 1px 0 color-mix(in oklab, var(--primary) 55%, black),
+    0 0 calc(var(--glow) * 20px) color-mix(in oklab, var(--primary) 55%, transparent);
+}
+.g-btn-play {
+  min-width: 13rem;
+  padding: 1.05rem 2.4rem;
+  font-size: 1.45rem;
+  animation: g-breathe 2.4s ease-in-out infinite;
+}
+.g-btn-play:hover,
+.g-btn-play:active {
+  animation: none;
+}
+
+.g-controls {
+  position: absolute;
+  bottom: max(1.25rem, env(safe-area-inset-bottom));
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem 1.4rem;
+  padding: 0 1rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.g-controls kbd {
+  display: inline-block;
+  margin-right: 0.3rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: 6px;
+  border: 1px solid color-mix(in oklab, var(--ink) 25%, transparent);
+  border-bottom-width: 3px;
+  background: color-mix(in oklab, var(--surface) 70%, transparent);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 0.8rem;
+}
+
+/* ─── HUD ─── */
+
+.g-hud {
+  position: absolute;
+  top: 0;
+  padding: max(0.9rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right)) 0 max(1rem, env(safe-area-inset-left));
+  display: flex;
+  pointer-events: none;
+}
+.g-hud > * {
+  pointer-events: auto;
+}
+.g-hud-left {
+  left: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.35rem;
+}
+.g-hud-right {
+  right: 0;
+  align-items: center;
+  gap: 0.5rem;
+}
+.g-hud-score {
+  font-family: var(--font-display), system-ui, sans-serif;
+  font-size: clamp(1.8rem, 5vw, 2.6rem);
+  line-height: 1;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  text-shadow:
+    0 2px 0 color-mix(in oklab, var(--bg) 80%, black),
+    0 0 calc(var(--glow) * 18px) color-mix(in oklab, var(--primary) 70%, transparent);
+  animation: g-bump 0.28s cubic-bezier(0.3, 1.8, 0.5, 1);
+  transform-origin: left center;
+}
+.g-hud-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.g-chip {
+  padding: 0.25rem 0.65rem;
+  border-radius: 999px;
+  background: var(--panel-bg);
+  border: var(--panel-border);
+  backdrop-filter: blur(var(--panel-blur));
+  -webkit-backdrop-filter: blur(var(--panel-blur));
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.g-chip b {
+  color: var(--ink);
+  font-weight: 700;
+}
+.g-lives {
+  display: flex;
+  gap: 0.2rem;
+  margin-right: 0.35rem;
+}
+.g-heart {
+  fill: var(--danger);
+  filter: drop-shadow(0 2px 0 color-mix(in oklab, var(--danger) 45%, black))
+    drop-shadow(0 0 calc(var(--glow) * 8px) color-mix(in oklab, var(--danger) 70%, transparent));
+  transition: transform 0.25s cubic-bezier(0.3, 1.8, 0.5, 1);
+}
+.g-heart-empty {
+  fill: color-mix(in oklab, var(--ink) 18%, transparent);
+  filter: none;
+  transform: scale(0.82);
+}
+.g-icon-btn {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 999px;
+  border: var(--panel-border);
+  background: var(--panel-bg);
+  backdrop-filter: blur(var(--panel-blur));
+  -webkit-backdrop-filter: blur(var(--panel-blur));
+  color: var(--ink);
+  cursor: pointer;
+  transition: transform 0.12s ease;
+}
+.g-icon-btn:active {
+  transform: scale(0.9);
+}
+
+.g-toast {
+  position: absolute;
+  top: 28%;
+  left: 0;
+  right: 0;
+  text-align: center;
+  pointer-events: none;
+  font-family: var(--font-display), system-ui, sans-serif;
+  font-size: clamp(2rem, 7vw, 4rem);
+  text-transform: var(--title-case);
+  letter-spacing: var(--title-tracking);
+  color: var(--accent);
+  text-shadow:
+    0 4px 0 color-mix(in oklab, var(--bg) 70%, black),
+    0 0 calc(var(--glow) * 30px) color-mix(in oklab, var(--accent) 70%, transparent);
+  animation: g-toast 1.5s cubic-bezier(0.2, 1, 0.3, 1) forwards;
+}
+
+.g-loader {
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  border: 4px solid color-mix(in oklab, var(--primary) 20%, transparent);
+  border-top-color: var(--primary);
+  animation: g-spin 0.8s linear infinite;
+}
+
+/* ─── Touch controls ─── */
+
+.g-touch {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  padding: 0 max(1.5rem, env(safe-area-inset-right)) max(1.5rem, env(safe-area-inset-bottom)) max(1.5rem, env(safe-area-inset-left));
+  pointer-events: none;
+}
+.g-stick,
+.g-touch-button {
+  pointer-events: auto;
+  touch-action: none;
+}
+.g-stick {
+  position: relative;
+  width: 132px;
+  height: 132px;
+  border-radius: 50%;
+  background: color-mix(in oklab, var(--surface) 35%, transparent);
+  border: 2px solid color-mix(in oklab, var(--ink) 18%, transparent);
+  display: grid;
+  place-items: center;
+}
+.g-stick-knob {
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  background: color-mix(in oklab, var(--primary) 80%, transparent);
+  box-shadow: 0 0 calc(var(--glow) * 18px) color-mix(in oklab, var(--primary) 60%, transparent);
+}
+.g-touch-buttons {
+  display: flex;
+  gap: 0.9rem;
+}
+.g-touch-button {
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  border: 2px solid color-mix(in oklab, var(--ink) 25%, transparent);
+  background: color-mix(in oklab, var(--secondary) 55%, transparent);
+  color: var(--ink);
+  font-family: var(--font-display), system-ui, sans-serif;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+}
+.g-touch-button:active {
+  transform: scale(0.92);
+  background: var(--secondary);
+}
+
+/* ─── Motion ─── */
+
+.g-enter {
+  animation: g-pop-in 0.5s cubic-bezier(0.2, 1.4, 0.4, 1) both;
+}
+@keyframes g-pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.94);
+  }
+}
+@keyframes g-float {
+  50% {
+    transform: translateY(-8px);
+  }
+}
+@keyframes g-breathe {
+  50% {
+    transform: scale(1.045);
+  }
+}
+@keyframes g-pulse {
+  50% {
+    transform: scale(1.08);
+  }
+}
+@keyframes g-bump {
+  from {
+    transform: scale(1.25);
+  }
+}
+@keyframes g-toast {
+  0% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  15% {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+  25% {
+    transform: scale(1);
+  }
+  75% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-24px);
+  }
+}
+@keyframes g-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes g-grain {
+  0% {
+    transform: translate(0, 0);
+  }
+  25% {
+    transform: translate(-5%, 3%);
+  }
+  50% {
+    transform: translate(4%, -4%);
+  }
+  75% {
+    transform: translate(-3%, -2%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .g-root *,
+  .g-root *::before,
+  .g-root *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

@@ -2,6 +2,7 @@ import "server-only";
 import { createAzure } from "@ai-sdk/azure";
 import {
   availableModels,
+  DEFAULT_ANSWER_MODEL,
   DEFAULT_BUILD_MODEL,
   DEFAULT_CHAT_MODEL,
   DEFAULT_FIX_MODEL,
@@ -13,7 +14,9 @@ import {
 //
 // Every call picks the cheapest model that does the job well:
 //   chat        agents' messages in the huddle                  gpt-4.1-nano
-//   structured  spec reading, cards, huddle plan, design choice  gpt-5.4-mini, no reasoning
+//   answer      an agent answering the human's question          gpt-5.4-mini, low reasoning
+//   structured  routing, spec reading, cards, huddle plan,       gpt-5.4-mini, no reasoning
+//               design choice
 //   planner     the build round's task list                     gpt-5.4-mini, low reasoning
 //   builder     writing code (the project's choice)             gpt-5.4-mini, gpt-5.4 for fixes
 
@@ -42,6 +45,8 @@ export function modelFor(deployment: string) {
 }
 
 export const chatModelId = () => process.env.AZURE_CHAT_DEPLOYMENT || DEFAULT_CHAT_MODEL;
+/** Answers to the human's questions: worth a model that gets facts and nuance right. */
+export const answerModelId = () => process.env.AZURE_ANSWER_DEPLOYMENT || DEFAULT_ANSWER_MODEL;
 export const structuredModelId = () => process.env.AZURE_STRUCTURED_DEPLOYMENT || DEFAULT_STRUCTURED_MODEL;
 export const plannerModelId = () => process.env.AZURE_PLANNER_DEPLOYMENT || DEFAULT_BUILD_MODEL;
 

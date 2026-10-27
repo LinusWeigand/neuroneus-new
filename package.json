@@ -10,7 +10,8 @@
     "typecheck": "next typegen && tsc --noEmit",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx scripts/migrate.ts",
-    "huddle": "tsx --env-file=.env.local --conditions react-server scripts/huddle.mts"
+    "huddle": "tsx --env-file=.env.local --conditions react-server scripts/huddle.mts",
+    "game-kit": "tsx scripts/game-kit-preview.mts"
   },
   "dependencies": {
     "@ai-sdk/azure": "^4.0.86",

@@ -4,7 +4,7 @@ import { generateText, NoObjectGeneratedError, Output, smoothStream, streamText 
 import { eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { type AgentDef, resolveAgents } from "@/lib/agents";
-import { chatModelId, modelFor, reasoningFor, structuredModelId } from "@/lib/ai";
+import { answerModelId, chatModelId, modelFor, reasoningFor, structuredModelId } from "@/lib/ai";
 import { startBuild } from "@/lib/build/engine";
 import { infraConfigured } from "@/lib/build/infra";
 import { getDecisions, getMessages, isCancelRequested, toDecisionDTO, toMessageDTO } from "@/lib/data";
@@ -19,6 +19,8 @@ import { EMPTY_SPEC, openSpecPoints, type ProjectSpec, specComplete, specTemplat
 import { humanLanguage } from "@/lib/build/language";
 import { recordUsage, type UsageScope } from "@/lib/usage";
 import type {
+  BuildStatus,
+  BuildTask,
   DecisionAnswer,
   DecisionCard,
   DecisionQuestion,
@@ -30,10 +32,13 @@ import {
   agentInstructions,
   agentPrompt,
   formatTranscript,
+  type Intent,
   type Mode,
   planInstructions,
   planPrompt,
   type ProjectContext,
+  routeInstructions,
+  routePrompt,
   specSynthesisInstructions,
   synthesisInstructions,
   synthesisPrompt,
@@ -57,12 +62,13 @@ export class RunInputError extends Error {
 }
 
 /**
- * Runs one turn of the group chat: records the human's input, has the moderator plan a short
- * huddle (who speaks on what), lets the agents talk, then distills the open questions into a
- * decision card for the human.
+ * Runs one turn of the group chat: records the human's input and reads what it wants. A
+ * question gets a direct answer from the agent whose area it is, and nothing else. Anything
+ * else gets a short huddle (who speaks on what is planned in one call), and a decision card
+ * only when something is left that only the human can decide.
  *
- * Cost: agents' messages run on the cheapest chat model; the plan, spec reading and the card
- * on a small model without reasoning. One plan call per huddle, not one per turn.
+ * Cost: huddle messages run on the cheapest chat model, answers on a small reasoning model;
+ * routing, the plan, spec reading and the card on a small model without reasoning.
  */
 export async function executeRun(args: {
   project: ProjectRow;
@@ -88,7 +94,17 @@ export async function executeRun(args: {
   const [history, locked, builtRounds] = await Promise.all([
     getMessages(project.id, 120),
     getDecisions(project.id),
-    db.select({ tasks: schema.builds.tasks }).from(schema.builds).where(eq(schema.builds.projectId, project.id)),
+    db
+      .select({
+        tasks: schema.builds.tasks,
+        status: schema.builds.status,
+        kind: schema.builds.kind,
+        round: schema.builds.round,
+        taskIndex: schema.builds.taskIndex,
+        createdAt: schema.builds.createdAt,
+      })
+      .from(schema.builds)
+      .where(eq(schema.builds.projectId, project.id)),
   ]);
   let spec: ProjectSpec = project.spec ?? EMPTY_SPEC;
   if (!project.spec) {
@@ -109,24 +125,18 @@ export async function executeRun(args: {
     shipped: builtRounds.flatMap((b) => b.tasks.filter((t) => t.status === "done").map((t) => t.summary || t.title)),
     ...specContext(spec),
     language: humanLanguage(humanTexts(history, project)),
+    status: "",
   };
+  ctx.status = statusLine(project, builtRounds, specComplete(spec));
+  const canBuild = Boolean(args.origin && project.repoFullName && infraConfigured());
 
   let mode: Mode;
   let mentioned: AgentDef[] = [];
+  let route: Route | null = null;
+  let buildAfter = false;
   let repoLog: Promise<void> | null = null;
 
   if (input.kind === "message") {
-    // A new message moves the conversation on; any unanswered card is superseded.
-    for (const m of history) {
-      if (m.kind === "decision_request" && m.data?.type === "decision_card" && m.data.status === "pending") {
-        const data: DecisionCard = { ...m.data, status: "superseded" };
-        const updated = await updateMessageData(m.id, data);
-        if (updated) {
-          Object.assign(m, updated);
-          emit({ type: "message", message: updated });
-        }
-      }
-    }
     const userMsg = await insertMessage({
       projectId: project.id,
       authorType: "user",
@@ -137,23 +147,46 @@ export async function executeRun(args: {
     history.push(userMsg);
     emit({ type: "message", message: userMsg });
 
-    // Read the message into the spec first, so the team works on what's really still open.
+    // Read the message into the spec, and what the human wants from the team, side by side.
     emit({ type: "status", label: "reading" });
-    spec = await saveSpec(project.id, spec, await extractSpec({
-      scope,
-      spec,
-      text: input.content,
-      source: "chat",
-      context: formatTranscript(history.slice(-10, -1)),
-    }));
+    const recent = formatTranscript(history.slice(-10, -1));
+    const [read, routed] = await Promise.all([
+      extractSpec({ scope, spec, text: input.content, source: "chat", context: recent }),
+      routeMessage({ ctx, transcript: recent, latest: input.content, projectId: project.id }),
+    ]);
+    spec = await saveSpec(project.id, spec, read);
     Object.assign(ctx, specContext(spec));
-
+    route = routed;
     mentioned = parseMentions(input.content, team);
+    const asking = route.intent === "question" || route.intent === "social";
+
+    // A question leaves an open card standing; anything else moves the conversation on.
+    if (!asking) {
+      for (const m of history) {
+        if (m.kind === "decision_request" && m.data?.type === "decision_card" && m.data.status === "pending") {
+          const data: DecisionCard = { ...m.data, status: "superseded" };
+          const updated = await updateMessageData(m.id, data);
+          if (updated) {
+            Object.assign(m, updated);
+            emit({ type: "message", message: updated });
+          }
+        }
+      }
+    }
+
     if (!wasComplete && specComplete(spec)) {
       mode = "ack";
       ctx.specJustCompleted = true;
+    } else if (asking) {
+      mode = "answer";
+    } else if ((route.intent === "request" || route.intent === "answer") && specComplete(spec) && !route.needsDecision) {
+      // A clear change to a specced product: confirm it and build it, no huddle needed.
+      mode = "answer";
+      buildAfter = canBuild;
+    } else if (mentioned.length > 0) {
+      mode = "direct";
     } else {
-      mode = mentioned.length > 0 ? "direct" : "open";
+      mode = !specComplete(spec) && route.intent === "answer" ? "spec" : "open";
     }
   } else {
     const request = history.find((m) => m.id === input.requestMessageId);
@@ -245,18 +278,25 @@ export async function executeRun(args: {
       mode = "ack";
       ctx.specJustCompleted = !wasComplete;
       // Decisions on a complete spec are the signal to build the next round.
-      if (wasComplete && args.origin && project.repoFullName && infraConfigured()) {
-        await startBuild(project.id, "build", args.origin).catch((err) => console.error("[run] build failed to start", err));
+      if (wasComplete && canBuild) {
+        await startBuild(project.id, "build", args.origin!).catch((err) => console.error("[run] build failed to start", err));
       }
     }
   }
 
   // The newest human message decides the language everyone answers in.
   ctx.language = humanLanguage(humanTexts(history, project));
-  const cancelled = await discuss({ ctx, mode, mentioned, history, project, runId, emit });
+  const latest = input.kind === "message" ? input.content : null;
+  const cancelled = await discuss({ ctx, mode, mentioned, route, latest, buildAfter, history, project, runId, emit });
 
-  if (!cancelled && mode !== "ack") {
+  // A card only when something is left that only the human can decide: open spec points,
+  // or a choice the human's message opened up. Answers and confirmations never get one.
+  const decide = mode !== "ack" && mode !== "answer" && (ctx.specOpen.length > 0 || input.kind === "answers" || Boolean(route?.needsDecision));
+  if (!cancelled && decide) {
     await synthesize({ ctx, history, project, runId, emit });
+  }
+  if (!cancelled && buildAfter) {
+    await startBuild(project.id, "build", args.origin!).catch((err) => console.error("[run] build failed to start", err));
   }
   if (ctx.specJustCompleted) {
     await specCompleted({ project: { ...project, spec }, spec, runId, emit, origin: args.origin });
@@ -271,23 +311,28 @@ async function discuss(args: {
   ctx: ProjectContext;
   mode: Mode;
   mentioned: AgentDef[];
+  route: Route | null;
+  /** The human's message this turn answers, if the turn started with one. */
+  latest: string | null;
+  /** The answer confirms a change that gets built right after. */
+  buildAfter: boolean;
   history: MessageDTO[];
   project: ProjectRow;
   runId: string;
   emit: Emit;
 }): Promise<boolean> {
-  const { ctx, mode, mentioned, history, project, runId, emit } = args;
+  const { ctx, mode, mentioned, route, latest, buildAfter, history, project, runId, emit } = args;
   if (await isCancelRequested(project.id, runId)) return true;
 
   emit({ type: "status", label: "reading" });
-  const turns = await planHuddle({ ctx, mode, mentioned, history, projectId: project.id });
+  const turns = await planHuddle({ ctx, mode, mentioned, route, buildAfter, history, projectId: project.id });
 
   let failures = 0;
   for (const turn of turns) {
     if (await isCancelRequested(project.id, runId)) return true;
     emit({ type: "status", label: null });
     emit({ type: "typing", agentId: turn.agent.id });
-    const msg = await speak({ agent: turn.agent, focus: turn.focus, ctx, history, project, runId, emit });
+    const msg = await speak({ agent: turn.agent, focus: turn.focus, mode, latest, ctx, history, project, runId, emit });
     if (!msg) {
       if (++failures >= 2) throw new Error("The model failed twice in a row. Check the Azure deployment and quota.");
       continue;
@@ -298,7 +343,78 @@ async function discuss(args: {
   return false;
 }
 
-const FALLBACK_FOCUS = "Add the one point from your area the others missed. Challenge anything you disagree with.";
+const FALLBACK_FOCUS = "Respond to the human's latest message from your area: the one point that matters most.";
+
+// ─── Routing ────────────────────────────────────────────────────────────────
+
+type Route = { intent: Intent; responders: AgentDef[]; needsDecision: boolean };
+
+const INTENTS = ["question", "request", "answer", "discuss", "social"] as const;
+
+/** What the human's message wants: an answer, a change, a huddle, or nothing much. */
+async function routeMessage(args: { ctx: ProjectContext; transcript: string; latest: string; projectId: string }): Promise<Route> {
+  const { ctx, latest } = args;
+  const ids = ctx.team.map((a) => a.id) as [string, ...string[]];
+  const routeSchema = z.object({
+    intent: z.enum(INTENTS),
+    responders: z.array(z.enum(ids)),
+    needsDecision: z.boolean(),
+  });
+  const toRoute = (r: z.infer<typeof routeSchema>): Route => ({
+    intent: r.intent,
+    responders: resolveAgents([...new Set(r.responders)]).filter((a) => ctx.team.includes(a)),
+    needsDecision: r.needsDecision,
+  });
+  const model = structuredModelId();
+  try {
+    const { output, usage } = await generateText({
+      model: modelFor(model),
+      instructions: routeInstructions(ctx),
+      prompt: routePrompt(args.transcript || "(nothing yet)", latest),
+      output: Output.object({ schema: routeSchema }),
+      reasoning: "none",
+      maxOutputTokens: 300,
+      maxRetries: 1,
+      abortSignal: AbortSignal.timeout(20_000),
+      providerOptions,
+    });
+    await recordUsage({ projectId: args.projectId }, "route", model, usage);
+    return toRoute(output);
+  } catch (err) {
+    const recovered = NoObjectGeneratedError.isInstance(err) ? firstJsonObject(err.text, routeSchema) : null;
+    if (recovered) return toRoute(recovered);
+    console.warn("[run] routing failed, guessing from punctuation:", err instanceof Error ? err.message : err);
+    return { intent: /\?\s*$/.test(latest.trim()) ? "question" : "discuss", responders: [], needsDecision: false };
+  }
+}
+
+const ACTIVE_BUILD: BuildStatus[] = ["queued", "setup", "planning", "building"];
+
+/** One line on where the live app stands, so agents can answer "is it done?" truthfully. */
+function statusLine(
+  project: ProjectRow,
+  builds: { tasks: BuildTask[]; status: BuildStatus; kind: "setup" | "build"; round: number; taskIndex: number; createdAt: Date }[],
+  complete: boolean,
+) {
+  const rounds = builds.filter((b) => b.kind === "build").sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  const active = rounds.find((b) => ACTIVE_BUILD.includes(b.status));
+  const shipped = rounds.some((b) => b.tasks.some((t) => t.status === "done"));
+  const parts: string[] = [];
+  if (active) {
+    const task = active.tasks[active.taskIndex];
+    parts.push(
+      `Build round ${active.round} is running right now${task ? ` (step ${active.taskIndex + 1} of ${active.tasks.length}: ${task.title})` : ""}; every finished step goes live automatically.`,
+    );
+  } else if (!complete) {
+    parts.push("Building starts automatically once every open spec point is answered.");
+  } else if (!shipped) {
+    parts.push("The spec is complete; building starts with the next build round.");
+  }
+  if (project.appUrl) {
+    parts.push(shipped ? `The app is live at ${project.appUrl}` : `So far only a placeholder page is live at ${project.appUrl}`);
+  }
+  return parts.join(" ") || "Nothing built yet.";
+}
 
 type Turn = { agent: AgentDef; focus: string };
 
@@ -310,32 +426,51 @@ async function planHuddle(args: {
   ctx: ProjectContext;
   mode: Mode;
   mentioned: AgentDef[];
+  route: Route | null;
+  buildAfter: boolean;
   history: MessageDTO[];
   projectId: string;
 }): Promise<Turn[]> {
-  const { ctx, mode, mentioned } = args;
+  const { ctx, mode, mentioned, route } = args;
   const team = ctx.team;
+  const lead = ["nova", "atlas"].map((id) => team.find((a) => a.id === id)).find(Boolean) ?? team[0];
 
   // Confirming a decision needs one voice, not a plan.
   if (mode === "ack") {
-    const lead = ["nova", "atlas"].map((id) => team.find((a) => a.id === id)).find(Boolean) ?? team[0];
     return [
       {
         agent: lead,
         focus: ctx.specJustCompleted
-          ? "Confirm in one or two sentences that the spec is complete, the team starts building now, and what the human sees first."
+          ? "If the human's latest message asks something, answer it first. Then confirm in one or two sentences that the spec is complete, the team starts building now, and what the human sees first."
           : "Confirm in one or two sentences what the human just settled and what the team does next.",
       },
     ];
   }
 
+  // A question (or a clear change request) is answered by whoever owns it: no plan, no debate.
+  if (mode === "answer") {
+    const responders = (mentioned.length ? mentioned : route?.responders.length ? route.responders : [lead]).slice(0, 2);
+    const focus =
+      route?.intent === "request" || route?.intent === "answer"
+        ? args.buildAfter
+          ? "Confirm concretely what will change in the product, in one or two sentences. It goes into the next build round, which starts right away (or right after the one running now)."
+          : "Say concretely how the team will handle this, in one or two sentences."
+        : route?.intent === "social"
+          ? "Reply in one short, friendly sentence. Don't bring up new topics."
+          : "Answer the human's question directly. The first sentence is the answer.";
+    return responders.map((agent, i) => ({
+      agent,
+      focus: i === 0 ? focus : "Add only what the first answer missed from your area, in one sentence. If nothing is missing, confirm it briefly.",
+    }));
+  }
+
   const maxTurns =
     mode === "open"
-      ? team.length + (team.length >= 3 ? 1 : 0)
+      ? Math.min(team.length, 4)
       : mode === "direct"
         ? Math.min(team.length, mentioned.length + 1)
         : Math.min(3, team.length);
-  const required = mode === "open" ? team : mode === "direct" ? mentioned : [];
+  const required = mode === "open" ? (route?.responders ?? []).slice(0, 3) : mode === "direct" ? mentioned : [];
 
   let planned: { agentId: string; focus: string }[] = [];
   const model = structuredModelId();
@@ -386,13 +521,15 @@ async function planHuddle(args: {
 async function speak(args: {
   agent: AgentDef;
   focus: string;
+  mode: Mode;
+  latest: string | null;
   ctx: ProjectContext;
   history: MessageDTO[];
   project: ProjectRow;
   runId: string;
   emit: Emit;
 }): Promise<MessageDTO | null> {
-  const { agent, focus, ctx, history, project, runId, emit } = args;
+  const { agent, focus, mode, latest, ctx, history, project, runId, emit } = args;
   const id = randomUUID();
   const createdAt = new Date();
   emit({ type: "start", id, agentId: agent.id, createdAt: createdAt.toISOString() });
@@ -400,14 +537,16 @@ async function speak(args: {
   let text = "";
   let pending = "";
   let prefixChecked = false;
-  const model = chatModelId();
+  // Answers are what the human waits for: they get a model that reasons a little.
+  const answering = mode === "answer";
+  const model = answering ? answerModelId() : chatModelId();
   try {
     const result = streamText({
       model: modelFor(model),
-      instructions: agentInstructions(agent, ctx),
-      prompt: agentPrompt(agent, ctx, formatTranscript(history), focus),
+      instructions: agentInstructions(agent, ctx, mode),
+      prompt: agentPrompt(agent, ctx, formatTranscript(history), focus, latest),
       reasoning: reasoningFor(model, "low"),
-      maxOutputTokens: 300,
+      maxOutputTokens: answering ? 1500 : 300,
       maxRetries: 1,
       abortSignal: AbortSignal.timeout(60_000),
       providerOptions,

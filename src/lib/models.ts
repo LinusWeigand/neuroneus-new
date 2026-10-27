@@ -25,6 +25,8 @@ export const MODEL_CATALOG: ModelOption[] = [
 
 /** Agents' chat messages: short Slack-style replies, the cheapest model that writes them well. */
 export const DEFAULT_CHAT_MODEL = "gpt-4.1-nano";
+/** An agent answering the human's question directly. */
+export const DEFAULT_ANSWER_MODEL = "gpt-5.4-mini";
 /** Structured work (spec reading, decision cards, huddle plans, design choice) without reasoning. */
 export const DEFAULT_STRUCTURED_MODEL = "gpt-5.4-mini";
 export const DEFAULT_BUILD_MODEL = "gpt-5.4-mini";
