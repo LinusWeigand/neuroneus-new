@@ -21,7 +21,7 @@ const TEMPLATES = BUNDLE as Record<string, Record<string, string>>;
 
 /** Whether the kit for a render path exists (the 3D kit may not ship yet). */
 export function hasGameKit(render: GameRender) {
-  return Boolean(TEMPLATES[render]);
+  return Boolean(TEMPLATES[render]?.["game/main.ts"] && TEMPLATES[render]?.["docs/GAME-KIT.md"]);
 }
 
 /** Files that make up the kit (engine code, shell, docs), keyed by their path in the app. */
