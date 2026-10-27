@@ -1,0 +1,46 @@
+{
+  "name": "neuroneus",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "tsx scripts/migrate.ts && next build",
+    "start": "next start",
+    "lint": "eslint",
+    "typecheck": "next typegen && tsc --noEmit",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "tsx scripts/migrate.ts",
+    "huddle": "tsx --env-file=.env.local --conditions react-server scripts/huddle.mts"
+  },
+  "dependencies": {
+    "@ai-sdk/azure": "^4.0.86",
+    "@octokit/auth-app": "^8.3.1",
+    "@octokit/rest": "^22.0.1",
+    "@vercel/functions": "^3.9.9",
+    "ai": "^7.0.123",
+    "drizzle-orm": "^0.45.3",
+    "getdesign": "0.6.25",
+    "nanoid": "^6.0.1",
+    "next": "16.3.8",
+    "pg": "^8.23.0",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "server-only": "^0.0.1",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/pg": "^8.23.1",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "dotenv": "^18.0.4",
+    "drizzle-kit": "^0.31.11",
+    "eslint": "^9",
+    "eslint-config-next": "16.3.8",
+    "tailwindcss": "^4",
+    "tsx": "^4.23.15",
+    "typescript": "^5"
+  },
+  "packageManager": "pnpm@12.4.2"
+}
