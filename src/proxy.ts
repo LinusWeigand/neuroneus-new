@@ -1,9 +1,12 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { authMisconfigured, isValidSession, SESSION_COOKIE } from "@/lib/auth";
+import { authMisconfigured, isValidSession, OPEN_ACCESS, SESSION_COOKIE } from "@/lib/auth";
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const isApi = pathname.startsWith("/api/");
+
+  // The gate is switched off for now (see OPEN_ACCESS); the login page just sends people in.
+  if (OPEN_ACCESS) return pathname === "/login" ? NextResponse.redirect(new URL("/", request.url)) : NextResponse.next();
 
   if (authMisconfigured()) {
     const msg = "Set the APP_PASSWORD environment variable in Vercel and redeploy.";

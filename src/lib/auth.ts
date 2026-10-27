@@ -3,8 +3,14 @@
 
 export const SESSION_COOKIE = "nn_session";
 
+/**
+ * TEMPORARY: the password gate is off and anyone with the URL can use the app (and spend on
+ * its models). Set back to false to require APP_PASSWORD again.
+ */
+export const OPEN_ACCESS = true;
+
 export function authRequired() {
-  return Boolean(process.env.APP_PASSWORD);
+  return !OPEN_ACCESS && Boolean(process.env.APP_PASSWORD);
 }
 
 /** Production deployments refuse to serve anything until APP_PASSWORD is set. */
