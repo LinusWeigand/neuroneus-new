@@ -5,6 +5,7 @@
 // config. The builder agent builds the actual game on top of it, so every game starts with
 // polished menus, HUD, juice, lighting and sound instead of rectangles on a canvas.
 
+import { createHash } from "node:crypto";
 import type { ArtTheme } from "@/lib/design/art";
 import BUNDLE from "./game-kit.bundle.json";
 
@@ -17,7 +18,31 @@ const ENGINES: Record<GameRender, { dependencies: Record<string, string>; devDep
 };
 
 /** templates/game, bundled (pnpm templates:bundle): { shared: {path: content}, "2d": ..., "3d": ... }. */
-const TEMPLATES = BUNDLE as Record<string, Record<string, string>>;
+const { history: HISTORY, ...TEMPLATES } = BUNDLE as unknown as Record<string, Record<string, string>> & { history: Record<string, string[]> };
+
+const hash = (s: string) => createHash("sha256").update(s).digest("hex").slice(0, 16);
+
+/**
+ * Brings a game built on an older kit up to date: adds kit modules it doesn't have, and
+ * replaces kit files it still has in an earlier, untouched version. Files the builder changed
+ * are left alone. Returns the paths it changed.
+ */
+export function upgradeKit(render: GameRender, files: Record<string, string>): string[] {
+  const changed: string[] = [];
+  for (const group of ["shared", render]) {
+    for (const [path, latest] of Object.entries(TEMPLATES[group] ?? {})) {
+      if (path === "app/game-ui.css") continue;
+      const current = files[path];
+      if (current === latest) continue;
+      const stale = current === undefined ? path.startsWith("game/kit/") : (HISTORY[`${group}:${path}`] ?? []).includes(hash(current));
+      if (stale || path.startsWith("docs/")) {
+        files[path] = latest;
+        changed.push(path);
+      }
+    }
+  }
+  return changed;
+}
 
 /** Whether the kit for a render path exists (the 3D kit may not ship yet). */
 export function hasGameKit(render: GameRender) {

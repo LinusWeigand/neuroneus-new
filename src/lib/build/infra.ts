@@ -15,7 +15,7 @@ import { specText } from "@/lib/spec/templates";
 import type { UsageScope } from "@/lib/usage";
 import { connectionUri, createDatabase, databaseExists, deleteDatabase, type NeonDatabase, neonConfigured } from "./neon";
 import { commitChanges, type FileMap, readRepo } from "./repo";
-import { type GameRender, gameKitFiles, gameThemeFiles, hasGameKit, withGameDependencies } from "./game-kit";
+import { type GameRender, gameKitFiles, gameThemeFiles, hasGameKit, upgradeKit, withGameDependencies } from "./game-kit";
 import { agentsMd, databaseFiles, gameFiles, starterFiles, withNeonDependency } from "./template";
 import { createProject, deleteProject, projectExists, setEnv, vercelConfigured, type VercelProject } from "./vercel";
 
@@ -156,13 +156,9 @@ export async function prepareApp(
       if (files["package.json"]) files["package.json"] = withGameDependencies(files["package.json"], render);
     } else {
       if (designChanged) Object.assign(files, await gameThemeFiles(render, theme));
-      // Kit upgrades: new kit modules arrive in games built on an older kit, and the kit guide
-      // stays current. Files the game already has are never touched.
-      const kit = await gameKitFiles({ render, theme, meta: { title: p.name, tagline: "" } });
-      for (const [path, content] of Object.entries(kit)) {
-        if (path.startsWith("docs/")) files[path] = content;
-        else if (path.startsWith("game/kit/")) files[path] ??= content;
-      }
+      // Kit upgrades: new kit modules and fixes reach games built on an older kit, wherever
+      // the game still has the untouched kit file. The builder's own changes stay.
+      upgradeKit(render, files);
     }
     if (direction) files["docs/ART-DIRECTION.md"] = direction.markdown;
   } else {
