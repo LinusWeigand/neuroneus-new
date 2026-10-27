@@ -138,6 +138,8 @@ export async function executeRun(args: {
   let repoLog: Promise<void> | null = null;
 
   if (input.kind === "message") {
+    // The first message (the kickoff) of a project whose description already completed the spec.
+    const kickoff = wasComplete && !history.some((m) => m.authorType === "user");
     const userMsg = await insertMessage({
       projectId: project.id,
       authorType: "user",
@@ -175,7 +177,7 @@ export async function executeRun(args: {
       }
     }
 
-    if (!wasComplete && specComplete(spec)) {
+    if ((!wasComplete || kickoff) && specComplete(spec)) {
       mode = "ack";
       ctx.specJustCompleted = true;
     } else if (asking) {
