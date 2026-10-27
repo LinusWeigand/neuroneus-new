@@ -1,16 +1,14 @@
-// The game kit: what a web game starts from instead of a bare canvas. It ships as real files
-// in templates/game/ (shared shell + a Phaser kit for 2D or a Three.js kit for 3D), plus files
+// The game kit: what a web game starts from instead of a bare canvas. It's written as real
+// files in templates/game/ (shared shell + a Phaser kit for 2D or a Three.js kit for 3D),
+// bundled into game-kit.bundle.json for the server, plus files
 // generated here from the chosen art direction: the theme tokens, fonts, CSS and the shell's
 // config. The builder agent builds the actual game on top of it, so every game starts with
 // polished menus, HUD, juice, lighting and sound instead of rectangles on a canvas.
 
-import fs from "node:fs/promises";
-import path from "node:path";
 import type { ArtTheme } from "@/lib/design/art";
+import BUNDLE from "./game-kit.bundle.json";
 
 export type GameRender = "2d" | "3d";
-
-const TEMPLATES = path.join(process.cwd(), "templates", "game");
 
 /** Pinned so a deploy months from now resolves the same engine. */
 const ENGINES: Record<GameRender, { dependencies: Record<string, string>; devDependencies: Record<string, string> }> = {
@@ -18,22 +16,19 @@ const ENGINES: Record<GameRender, { dependencies: Record<string, string>; devDep
   "3d": { dependencies: { three: "0.186.0" }, devDependencies: { "@types/three": "0.186.0" } },
 };
 
-async function readTree(dir: string, base = dir): Promise<Record<string, string>> {
-  const out: Record<string, string> = {};
-  for (const entry of await fs.readdir(dir, { withFileTypes: true })) {
-    const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) Object.assign(out, await readTree(full, base));
-    else out[path.relative(base, full).split(path.sep).join("/")] = await fs.readFile(full, "utf8");
-  }
-  return out;
+/** templates/game, bundled (pnpm templates:bundle): { shared: {path: content}, "2d": ..., "3d": ... }. */
+const TEMPLATES = BUNDLE as Record<string, Record<string, string>>;
+
+/** Whether the kit for a render path exists (the 3D kit may not ship yet). */
+export function hasGameKit(render: GameRender) {
+  return Boolean(TEMPLATES[render]);
 }
 
 /** Files that make up the kit (engine code, shell, docs), keyed by their path in the app. */
 async function kitSources(render: GameRender) {
-  const [shared, engine] = await Promise.all([readTree(path.join(TEMPLATES, "shared")), readTree(path.join(TEMPLATES, render))]);
-  const files = { ...shared, ...engine };
+  const files = { ...TEMPLATES.shared, ...TEMPLATES[render] };
   // The stylesheet is composed with the theme tokens below, not shipped on its own.
-  const css = files["app/game-ui.css"];
+  const css = files["app/game-ui.css"] ?? "";
   delete files["app/game-ui.css"];
   return { files, css };
 }

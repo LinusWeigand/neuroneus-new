@@ -4,14 +4,15 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "tsx scripts/migrate.ts && next build",
+    "build": "tsx scripts/migrate.ts && tsx scripts/bundle-templates.mts && next build",
     "start": "next start",
     "lint": "eslint",
     "typecheck": "next typegen && tsc --noEmit",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx scripts/migrate.ts",
     "huddle": "tsx --env-file=.env.local --conditions react-server scripts/huddle.mts",
-    "game-kit": "tsx scripts/game-kit-preview.mts"
+    "game-kit": "tsx scripts/bundle-templates.mts && tsx scripts/game-kit-preview.mts",
+    "templates:bundle": "tsx scripts/bundle-templates.mts"
   },
   "dependencies": {
     "@ai-sdk/azure": "^4.0.86",
