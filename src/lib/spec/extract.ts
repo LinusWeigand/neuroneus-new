@@ -85,7 +85,7 @@ Rules:
   }
   const needsDatabase =
     output.needsDatabase === "yes" ? true : output.needsDatabase === "no" ? false : spec.needsDatabase;
-  return { kind, answers, needsDatabase };
+  return { ...spec, kind, answers, needsDatabase };
 }
 
 /** Whether the finished spec needs a server database, when the conversation never said so plainly. */
