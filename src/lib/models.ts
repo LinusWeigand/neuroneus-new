@@ -32,6 +32,8 @@ export const DEFAULT_STRUCTURED_MODEL = "gpt-5.4-mini";
 export const DEFAULT_BUILD_MODEL = "gpt-5.4-mini";
 /** A failed build is harder than the task was: fixes step up to this model on "auto". */
 export const DEFAULT_FIX_MODEL = "gpt-5.4";
+/** Games build and fix with a fast model: the game kit carries the polish, speed gets it playable sooner. */
+export const DEFAULT_GAME_MODEL = "gpt-5.6-luna";
 
 /**
  * The models this deployment offers. AZURE_MODEL_DEPLOYMENTS (comma-separated deployment

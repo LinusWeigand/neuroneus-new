@@ -6,6 +6,7 @@ import {
   DEFAULT_BUILD_MODEL,
   DEFAULT_CHAT_MODEL,
   DEFAULT_FIX_MODEL,
+  DEFAULT_GAME_MODEL,
   DEFAULT_STRUCTURED_MODEL,
 } from "@/lib/models";
 
@@ -18,7 +19,8 @@ import {
 //   structured  routing, spec reading, cards, huddle plan,       gpt-5.4-mini, no reasoning
 //               design choice
 //   planner     the build round's task list                     gpt-5.4-mini, low reasoning
-//   builder     writing code (the project's choice)             gpt-5.4-mini, gpt-5.4 for fixes
+//   builder     writing code (the project's choice)             gpt-5.4-mini, gpt-5.4 for fixes;
+//               games on the game kit                           gpt-5.6-luna (fast) for both
 
 export function aiConfigured() {
   return Boolean((process.env.AZURE_RESOURCE_NAME || process.env.AZURE_BASE_URL) && process.env.AZURE_API_KEY);
@@ -48,7 +50,8 @@ export const chatModelId = () => process.env.AZURE_CHAT_DEPLOYMENT || DEFAULT_CH
 /** Answers to the human's questions: worth a model that gets facts and nuance right. */
 export const answerModelId = () => process.env.AZURE_ANSWER_DEPLOYMENT || DEFAULT_ANSWER_MODEL;
 export const structuredModelId = () => process.env.AZURE_STRUCTURED_DEPLOYMENT || DEFAULT_STRUCTURED_MODEL;
-export const plannerModelId = () => process.env.AZURE_PLANNER_DEPLOYMENT || DEFAULT_BUILD_MODEL;
+export const plannerModelId = (opts: { game?: boolean } = {}) =>
+  (opts.game ? process.env.AZURE_GAME_DEPLOYMENT || DEFAULT_GAME_MODEL : null) || process.env.AZURE_PLANNER_DEPLOYMENT || DEFAULT_BUILD_MODEL;
 
 /** Only deployments we offer can be chosen; anything else falls back to the default. */
 function offered(choice: string | null | undefined) {
@@ -56,9 +59,10 @@ function offered(choice: string | null | undefined) {
 }
 
 /** The deployment the builder writes code with. A project's explicit choice always wins. */
-export function builderModelId(choice?: string | null, opts: { fixing?: boolean } = {}) {
+export function builderModelId(choice?: string | null, opts: { fixing?: boolean; game?: boolean } = {}) {
   const picked = offered(choice);
   if (picked) return picked;
+  if (opts.game) return process.env.AZURE_GAME_DEPLOYMENT || DEFAULT_GAME_MODEL;
   if (opts.fixing) return process.env.AZURE_BUILDER_FIX_DEPLOYMENT || DEFAULT_FIX_MODEL;
   return process.env.AZURE_BUILDER_DEPLOYMENT || DEFAULT_BUILD_MODEL;
 }

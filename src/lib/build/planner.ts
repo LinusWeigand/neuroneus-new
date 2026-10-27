@@ -29,7 +29,7 @@ export async function planRound(args: {
 }): Promise<PlannedTask[]> {
   const { ctx } = args;
   const max = args.round <= 1 ? 5 : 4;
-  const model = plannerModelId();
+  const model = plannerModelId({ game: Boolean(ctx.kit) });
 
   const { output, usage } = await generateText({
     model: modelFor(model),

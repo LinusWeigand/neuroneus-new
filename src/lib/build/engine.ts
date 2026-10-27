@@ -345,7 +345,7 @@ async function implementStep(build: BuildRow, project: ProjectRow): Promise<bool
   const committed = (await loadBlob<FileMap>(build.id, "files")) ?? {};
   const inProgress = build.agentTurns > 0 ? await loadBlob<TaskInProgress>(build.id, "task") : null;
   const fixing = build.phase === "fix";
-  const model = builderModelId(project.builderModel, { fixing });
+  const model = builderModelId(project.builderModel, { fixing, game: isArtSlug(project.designSlug) });
   const report = liveReporter(build, agent.id);
   const started = Date.now();
 
