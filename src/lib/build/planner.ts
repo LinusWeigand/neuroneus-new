@@ -26,6 +26,8 @@ export async function planRound(args: {
   files: FileMap;
   transcript: string;
   round: number;
+  /** The game's art direction was just rewritten: the look has to catch up first. */
+  artRefresh?: boolean;
 }): Promise<PlannedTask[]> {
   const { ctx } = args;
   const max = args.round <= 1 ? 5 : 4;
@@ -71,7 +73,11 @@ Rules:
           ? "The first task makes the game playable end to end on the canvas shell: start screen, the core loop, game over and restart, styled with DESIGN.md's tokens. Later tasks add mechanics, progression and feedback."
           : "The first task sets up DESIGN.md's tokens and fonts, and replaces the placeholder with the real app shell and the core feature, so the human sees the product take shape immediately."
         : ctx.kit
-          ? "Build on what's shipped. Don't redo it. Keep the polish: every new mechanic comes with its art, feedback and sound."
+          ? `Build on what's shipped. Don't redo it. Keep the polish: every new mechanic comes with its art, feedback and sound.${
+              args.artRefresh
+                ? " The art direction (docs/ART-DIRECTION.md) was just rewritten and the kit gained recognizable animals, food and plants (game/kit/sprites.ts): the first task brings the whole look in line with it: every character, item, hiding spot and decoration redrawn as the art direction says, at readable sizes, nothing standing in for something else."
+                : ""
+            }`
           : "Build on what's shipped. Don't redo it."
     }
 - Keep each task small enough for one engineer in one sitting: a few files, no more.

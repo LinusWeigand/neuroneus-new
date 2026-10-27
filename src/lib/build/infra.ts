@@ -107,7 +107,7 @@ export async function prepareApp(
   project: ProjectRow,
   scope: UsageScope,
   onStage: (stage: SetupStage) => Promise<void> = async () => {},
-): Promise<{ project: ProjectRow; files: FileMap }> {
+): Promise<{ project: ProjectRow; files: FileMap; artRefreshed: boolean }> {
   const spec = project.spec;
   if (!spec?.kind) throw new Error("The spec isn't complete yet.");
   let p = project;
@@ -142,6 +142,7 @@ export async function prepareApp(
   await onStage("conventions");
   const designChanged = marker.design !== p.designSlug;
   let render: GameRender | null = null;
+  let artRefreshed = false;
   if (kitGame && isArtSlug(p.designSlug)) {
     // The game kit, themed with the art direction, and the game's own art bible on top.
     const theme = artTheme(p.designSlug!)!;
@@ -160,7 +161,11 @@ export async function prepareApp(
       // the game still has the untouched kit file. The builder's own changes stay.
       upgradeKit(render, files);
     }
-    if (direction) files["docs/ART-DIRECTION.md"] = direction.markdown;
+    if (direction) {
+      files["docs/ART-DIRECTION.md"] = direction.markdown;
+      // A game that already exists got a new art bible: its look has to catch up.
+      artRefreshed = marker.kit === render;
+    }
   } else {
     // `npx getdesign add <slug>`, done server-side: the template goes in as DESIGN.md, with a
     // short brief of it that the builder keeps in context instead of the whole file.
@@ -196,7 +201,7 @@ export async function prepareApp(
     `Prepare the ${spec.kind === "web_game" ? "game" : "app"}: ${designName(p.designSlug!)} design, spec and conventions`,
     AGENT_AUTHOR("Neuroneus"),
   );
-  return { project: p, files };
+  return { project: p, files, artRefreshed };
 }
 
 export type TeardownPart = "hosting" | "database" | "repository";

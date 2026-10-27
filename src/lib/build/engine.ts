@@ -276,8 +276,8 @@ async function advance(build: BuildRow): Promise<boolean> {
           await transition(build.id, { status: "building", phase: "deploy", tasks: [] });
         } else {
           // Spec complete: database if needed, design system, spec and conventions in the repo.
-          const { files } = await prepareApp(project, { projectId: project.id, buildId: build.id }, onStage);
-          await saveBlobs(build.id, { files, good: files });
+          const { files, artRefreshed } = await prepareApp(project, { projectId: project.id, buildId: build.id }, onStage);
+          await saveBlobs(build.id, { files, good: files, ...(artRefreshed ? { art: true } : {}) });
           await transition(build.id, { status: "planning" });
         }
       } catch (err) {
@@ -299,6 +299,7 @@ async function advance(build: BuildRow): Promise<boolean> {
         files: (await loadBlob<FileMap>(build.id, "files")) ?? {},
         transcript,
         round: build.round,
+        artRefresh: Boolean(await loadBlob<boolean>(build.id, "art")),
       });
       if (planned.length === 0) {
         await transition(build.id, { status: "done", finishedAt: new Date() });

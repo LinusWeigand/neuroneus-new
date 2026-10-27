@@ -170,7 +170,7 @@ export const buildBlobs = pgTable(
     buildId: uuid("build_id")
       .notNull()
       .references(() => builds.id, { onDelete: "cascade" }),
-    name: text("name").$type<"files" | "good" | "task">().notNull(),
+    name: text("name").$type<"files" | "good" | "task" | "art">().notNull(),
     data: bytea("data").notNull(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

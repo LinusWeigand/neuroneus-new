@@ -8,7 +8,7 @@ import { db, schema } from "@/lib/db";
 // gzipped, and is read only by the step that needs it. Database traffic is metered: the build
 // row itself stays small enough to poll.
 
-type BlobName = "files" | "good" | "task";
+type BlobName = "files" | "good" | "task" | "art";
 
 const zip = promisify(gzip);
 const unzip = promisify(gunzip);
