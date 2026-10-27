@@ -7,7 +7,7 @@ import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
 import { THEME } from "@/game/theme";
 
 /**
- * The 3D stage, lit and finished from the theme: filmic tone mapping, a gradient sky with
+ * The 3D stage, lit and finished from the theme: neutral tone mapping, a gradient sky with
  * matching fog, soft environment reflections, a warm key light with soft shadows, a sky/ground
  * fill and a rim light, and bloom. Your world adds meshes to `stage.scene`.
  *
@@ -49,8 +49,8 @@ function skyDome() {
       varying vec3 vDir;
       void main() {
         float h = clamp(vDir.y * 1.6 + 0.15, 0.0, 1.0);
+        // Linear output: the composer's output pass tone-maps and converts to sRGB.
         gl_FragColor = vec4(mix(bottom, top, pow(h, 0.8)), 1.0);
-        #include <colorspace_fragment>
       }`,
   });
   const mesh = new THREE.Mesh(geometry, material);
@@ -61,8 +61,9 @@ function skyDome() {
 export function createStage(parent: HTMLElement): Stage {
   const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-  renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.05;
+  // Neutral tone mapping keeps stylized base colors true (ACES washes them toward white).
+  renderer.toneMapping = THREE.NeutralToneMapping;
+  renderer.toneMappingExposure = 1;
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFShadowMap;
   renderer.domElement.style.display = "block";
@@ -79,13 +80,13 @@ export function createStage(parent: HTMLElement): Stage {
   const pmrem = new THREE.PMREMGenerator(renderer);
   const env = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
   scene.environment = env;
-  scene.environmentIntensity = 0.45;
+  scene.environmentIntensity = 0.3;
   pmrem.dispose();
 
-  const hemi = new THREE.HemisphereLight(new THREE.Color(THEME.world3d.skyTop).lerp(new THREE.Color("#ffffff"), 0.4), new THREE.Color(THEME.world3d.ground), 1.1);
+  const hemi = new THREE.HemisphereLight(new THREE.Color(THEME.world3d.skyTop).lerp(new THREE.Color("#ffffff"), 0.4), new THREE.Color(THEME.world3d.ground), 0.7);
   scene.add(hemi);
 
-  const sun = new THREE.DirectionalLight(new THREE.Color(THEME.world3d.sun), THEME.world3d.sunIntensity);
+  const sun = new THREE.DirectionalLight(new THREE.Color(THEME.world3d.sun), THEME.world3d.sunIntensity * 0.8);
   sun.position.set(8, 16, 6);
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);
@@ -112,7 +113,8 @@ export function createStage(parent: HTMLElement): Stage {
   const composer = new EffectComposer(renderer);
   composer.addPass(new RenderPass(scene, camera));
   let bloom: UnrealBloomPass | null = null;
-  if (THEME.fx.bloom > 0) {
+  // Bloom only for dark, glowing themes; on bright scenes it washes everything out.
+  if (THEME.fx.bloom >= 0.5) {
     bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.25 + THEME.fx.bloom * 0.45, 0.55, 0.82);
     composer.addPass(bloom);
   }

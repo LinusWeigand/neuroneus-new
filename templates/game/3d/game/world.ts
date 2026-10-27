@@ -25,6 +25,7 @@ export class World {
   private vy = 0;
   private gems: THREE.Group[] = [];
   private hazards: { mesh: THREE.Group; dir: THREE.Vector3; speed: number }[] = [];
+  private alive = false;
   private invulnerable = 0;
   private spawnTimer = 0;
   private levelTimer = 0;
@@ -67,6 +68,7 @@ export class World {
     this.player.rotation.set(0, 0, 0);
     this.velocity.set(0, 0, 0);
     this.vy = 0;
+    this.alive = true;
     this.player.visible = true;
     this.fx.squash(this.player, "stretch");
     this.fx.burst(new THREE.Vector3(0, 0.5, 0), { color: THEME.palette.primary, count: 30 });
@@ -77,7 +79,7 @@ export class World {
 
   update(dt: number) {
     this.time += dt;
-    const playing = isPlaying() && this.player.visible;
+    const playing = isPlaying() && this.alive;
     const level = getState().level;
 
     if (playing) {
@@ -115,9 +117,9 @@ export class World {
       const body = this.player.children[0];
       body.position.y = 0.5 + (grounded ? Math.abs(Math.sin(this.time * 14)) * Math.min(1, this.velocity.length() / 6) * 0.12 : 0);
 
+      // Blink while invulnerable.
       this.invulnerable = Math.max(0, this.invulnerable - dt);
       this.player.visible = this.invulnerable === 0 || Math.floor(this.time * 12) % 2 === 0;
-      if (this.invulnerable === 0) this.player.visible = true;
 
       this.levelTimer += dt;
       if (this.levelTimer > 20) {
@@ -200,6 +202,7 @@ export class World {
     setHud({ lives });
     if (lives <= 0) {
       this.fx.juice.explode(this.player.position.clone().add(new THREE.Vector3(0, 0.5, 0)), THEME.palette.primary);
+      this.alive = false;
       this.player.visible = false;
       setTimeout(() => gameOver(), 700);
     }
