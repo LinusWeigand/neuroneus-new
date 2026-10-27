@@ -20,6 +20,7 @@ import { AGENT_AUTHOR, ensureInfra, neonOf, prepareApp, vercelOf } from "./infra
 import { humanLanguage } from "./language";
 import { applySchema } from "./neon";
 import { planRound } from "./planner";
+import { captureGame, playtestConfigured, reviewGame } from "./playtest";
 import { commitChanges, type FileMap, readRepo } from "./repo";
 import { buildErrors, deploy, getDeployment, latestLogLines, productionUrl } from "./vercel";
 
@@ -483,9 +484,52 @@ async function deployed(build: BuildRow, project: ProjectRow): Promise<boolean> 
     });
     return true;
   }
+  // Everything planned is live: a game gets played once, and what a player would notice is fixed.
+  const fix = await playtestRound(build, project, tasks);
+  if (fix) {
+    await transition(build.id, {
+      tasks: [...tasks, fix],
+      taskIndex: tasks.length,
+      phase: "implement",
+      fixAttempts: 0,
+      lastError: null,
+      deploymentId: null,
+    });
+    return true;
+  }
   await patch(build.id, { tasks, phase: null, deploymentId: null });
   await finishRound({ ...build, tasks }, project);
   return false;
+}
+
+/**
+ * Plays the live game in a real browser and reviews the screenshots (see ./playtest.ts).
+ * Once per round, for games on the kit; returns the fix task when the review asks for one.
+ */
+async function playtestRound(build: BuildRow, project: ProjectRow, tasks: BuildTask[]): Promise<BuildTask | null> {
+  if (project.spec?.kind !== "web_game" || !isArtSlug(project.designSlug) || !playtestConfigured()) return null;
+  if (tasks.some((t) => t.id === "playtest") || build.tokens >= roundTokenBudget()) return null;
+  const [fresh] = await db.select({ appUrl: schema.projects.appUrl }).from(schema.projects).where(eq(schema.projects.id, project.id));
+  if (!fresh?.appUrl) return null;
+  const builder = builderAgentFor(resolveAgents(project.agentIds));
+  await setActivity(build.id, { kind: "playtesting", agentId: builder.id });
+  try {
+    const { shots, errors } = await captureGame(fresh.appUrl);
+    if (shots.length < 2) return null;
+    const files = (await loadBlob<FileMap>(build.id, "files")) ?? {};
+    const ctx = await buildContext(project);
+    const review = await reviewGame(
+      { projectId: project.id, buildId: build.id },
+      { name: project.name, spec: ctx.spec, artDirection: files["docs/ART-DIRECTION.md"] ?? "", shots, errors, language: ctx.language },
+    );
+    console.log(`[build] playtest ${project.id}: ${review?.score ?? "-"}/10 ${review?.verdict ?? ""}`);
+    if (!review?.task) return null;
+    return { id: "playtest", title: review.task.title, detail: review.task.detail, agentId: builder.id, status: "pending" };
+  } catch (err) {
+    // The playtest is a bonus: a browser hiccup never blocks the round.
+    console.error("[build] playtest failed", err);
+    return null;
+  }
 }
 
 async function buildFailed(build: BuildRow, project: ProjectRow, log: string): Promise<boolean> {

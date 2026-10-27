@@ -77,7 +77,19 @@ export type BuildTask = {
 
 /** The live "what's happening now" line. */
 export type BuildActivity = {
-  kind: "setup" | "planning" | "thinking" | "listing" | "reading" | "searching" | "writing" | "editing" | "deleting" | "schema" | "deploying";
+  kind:
+    | "setup"
+    | "planning"
+    | "playtesting"
+    | "thinking"
+    | "listing"
+    | "reading"
+    | "searching"
+    | "writing"
+    | "editing"
+    | "deleting"
+    | "schema"
+    | "deploying";
   agentId?: string;
   path?: string;
   /** Characters written so far (writing/editing), or the search query. */
@@ -141,6 +153,7 @@ export type UsagePurpose =
   | "design"
   | "design_brief"
   | "plan"
+  | "playtest"
   | "build";
 
 /** Token totals for a project, split into the discussion and building. */

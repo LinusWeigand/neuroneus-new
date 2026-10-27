@@ -46,6 +46,8 @@ export function activityText(t: Dictionary, a: BuildActivity) {
       return t.live.setup[a.stage ?? "default"] ?? t.live.setup.default;
     case "planning":
       return t.live.planning;
+    case "playtesting":
+      return t.live.playtesting;
     case "thinking":
       return t.live.thinking;
     case "listing":
