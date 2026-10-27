@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
 import type { ProjectRow } from "@/lib/db/schema";
 import { artTheme, isArtSlug } from "@/lib/design/art";
-import { writeArtDirection } from "@/lib/design/art-direction";
+import { ART_DIRECTION_VERSION, writeArtDirection } from "@/lib/design/art-direction";
 import { designName } from "@/lib/design/catalog";
 import { designBrief } from "@/lib/design/brief";
 import { chooseDesign } from "@/lib/design/choose";
@@ -123,7 +123,7 @@ export async function prepareApp(
   const files: FileMap = { ...before };
   const marker = (() => {
     try {
-      return JSON.parse(before[".neuroneus.json"] ?? "{}") as { design?: string; kit?: GameRender };
+      return JSON.parse(before[".neuroneus.json"] ?? "{}") as { design?: string; kit?: GameRender; art?: number };
     } catch {
       return {};
     }
@@ -147,7 +147,7 @@ export async function prepareApp(
     const theme = artTheme(p.designSlug!)!;
     render = p.spec?.render && hasGameKit(p.spec.render) ? p.spec.render : "2d";
     const direction =
-      !files["docs/ART-DIRECTION.md"] || designChanged || marker.kit !== render
+      !files["docs/ART-DIRECTION.md"] || designChanged || marker.kit !== render || marker.art !== ART_DIRECTION_VERSION
         ? await writeArtDirection(scope, { name: p.name, vision: p.vision, spec: p.spec!, theme, render })
         : null;
     if (marker.kit !== render) {
@@ -183,7 +183,11 @@ export async function prepareApp(
   files["docs/SPEC.md"] = `# Spec: ${p.name}\n\n> ${vision}\n\n${specText(spec, labels)}\n`;
   files["AGENTS.md"] = agentsMd({ kind: spec.kind, designName: designName(p.designSlug!), database: Boolean(neonOf(p)), kit: render });
   files[".neuroneus.json"] =
-    JSON.stringify({ kind: spec.kind, design: p.designSlug, database: Boolean(neonOf(p)), ...(render ? { kit: render } : {}) }, null, 2) + "\n";
+    JSON.stringify(
+      { kind: spec.kind, design: p.designSlug, database: Boolean(neonOf(p)), ...(render ? { kit: render, art: ART_DIRECTION_VERSION } : {}) },
+      null,
+      2,
+    ) + "\n";
 
   await commitChanges(
     p.repoFullName!,

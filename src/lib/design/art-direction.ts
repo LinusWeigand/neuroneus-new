@@ -12,6 +12,9 @@ import { ART_IDS, ART_THEMES, type ArtTheme, artSlug } from "./art";
 // once, when the build sets the game up). The theme keeps colors and type harmonious; the
 // art bible makes it this game, in terms of the kit's building blocks.
 
+/** Bump when the art director's brief changes enough that existing art bibles should be rewritten. */
+export const ART_DIRECTION_VERSION = 2;
+
 const WANTS_3D = /\b3d\b|three[- ]?dimensional|first[- ]person|third[- ]person|ego[- ]?perspektive|voxel|low[- ]poly/i;
 
 /** Picks the theme and whether the game is 2D or 3D. */
@@ -95,6 +98,7 @@ markdown: Markdown, at most 4500 characters, these sections:
 ## World: the backdrop and the play area: ground, platforms or arena, layers, what scrolls, decoration that makes it feel alive.
 ## Feedback: every game event (moving, jumping, shooting, collecting, getting hit, combos, levelling up, losing, winning) mapped to the kit effects and sound that fire, so nothing happens silently.
 ## Motion: how movement feels (acceleration, weight, snappiness), speeds in kit units, easing, timings of key animations.
+Sizes must read on a phone: ${render === "2d" ? "the player and other characters 10–14 U tall, pickups 5–8 U, hazards at least as big as the player" : "the player about 1 unit, the camera close enough that it fills about a tenth of the screen height"}.
 ## Screens: what the HUD shows (score, lives, which stats), the toasts, the mood of the title screen.
 Be concrete and specific to this game. No preamble, no code.
 
