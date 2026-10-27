@@ -2,6 +2,8 @@ import "server-only";
 import { eq } from "drizzle-orm";
 import { db, schema } from "@/lib/db";
 import type { ProjectRow } from "@/lib/db/schema";
+import { artTheme, isArtSlug } from "@/lib/design/art";
+import { writeArtDirection } from "@/lib/design/art-direction";
 import { designName } from "@/lib/design/catalog";
 import { designBrief } from "@/lib/design/brief";
 import { chooseDesign } from "@/lib/design/choose";
@@ -13,6 +15,7 @@ import { specText } from "@/lib/spec/templates";
 import type { UsageScope } from "@/lib/usage";
 import { connectionUri, createDatabase, databaseExists, deleteDatabase, type NeonDatabase, neonConfigured } from "./neon";
 import { commitChanges, type FileMap, readRepo } from "./repo";
+import { type GameRender, gameKitFiles, gameThemeFiles, hasGameKit, withGameDependencies } from "./game-kit";
 import { agentsMd, databaseFiles, gameFiles, starterFiles, withNeonDependency } from "./template";
 import { createProject, deleteProject, projectExists, setEnv, vercelConfigured, type VercelProject } from "./vercel";
 
@@ -96,8 +99,8 @@ export async function ensureInfra(
 
 /**
  * Turns the placeholder into the project the spec describes, before the first task: decides
- * the database, picks and installs the design system (DESIGN.md), adds the game shell for
- * games, and writes the spec and the agents' conventions into the repository.
+ * the database, picks and installs the look (a design system for apps, an art direction and
+ * the game kit for games), and writes the spec and the agents' conventions into the repository.
  * Safe to run every round: it only commits what changed.
  */
 export async function prepareApp(
@@ -116,33 +119,57 @@ export async function prepareApp(
   }
   p = await ensureInfra(p, onStage, { database });
 
-  if (!p.designSlug) {
-    await onStage("design");
-    p = await save(p.id, { designSlug: await chooseDesign(scope, { name: p.name, vision: p.vision, spec }) });
-  }
-
-  await onStage("conventions");
   const before = await readRepo(p.repoFullName!);
   const files: FileMap = { ...before };
   const marker = (() => {
     try {
-      return JSON.parse(before[".neuroneus.json"] ?? "{}") as { design?: string };
+      return JSON.parse(before[".neuroneus.json"] ?? "{}") as { design?: string; kit?: GameRender };
     } catch {
       return {};
     }
   })();
+  // A game gets the game kit unless it was already built on the old canvas shell.
+  const game = spec.kind === "web_game";
+  const untouched = !marker.design && (before["app/page.tsx"] ?? "").includes("The team is shaping the spec");
+  const kitGame = game && (Boolean(marker.kit) || untouched || isArtSlug(p.designSlug));
 
-  // `npx getdesign add <slug>`, done server-side: the template goes in as DESIGN.md, with a
-  // short brief of it that the builder keeps in context instead of the whole file.
-  const designChanged = marker.design !== p.designSlug;
-  if (!files["DESIGN.md"] || designChanged) files["DESIGN.md"] = await loadDesign(p.designSlug!);
-  if (!files["docs/DESIGN-BRIEF.md"] || designChanged) {
-    const brief = await designBrief(scope, { name: designName(p.designSlug!), markdown: files["DESIGN.md"] });
-    if (brief) files["docs/DESIGN-BRIEF.md"] = brief;
-    else delete files["docs/DESIGN-BRIEF.md"];
+  if (!p.designSlug || (kitGame && !isArtSlug(p.designSlug))) {
+    await onStage("design");
+    const chosen = await chooseDesign(scope, { name: p.name, vision: p.vision, spec });
+    p = await save(p.id, { designSlug: chosen.slug, ...(chosen.render ? { spec: { ...p.spec!, render: chosen.render } } : {}) });
   }
-  if (spec.kind === "web_game") {
-    for (const [path, content] of Object.entries(gameFiles())) files[path] ??= content;
+
+  await onStage("conventions");
+  const designChanged = marker.design !== p.designSlug;
+  let render: GameRender | null = null;
+  if (kitGame && isArtSlug(p.designSlug)) {
+    // The game kit, themed with the art direction, and the game's own art bible on top.
+    const theme = artTheme(p.designSlug!)!;
+    render = p.spec?.render && hasGameKit(p.spec.render) ? p.spec.render : "2d";
+    const direction =
+      !files["docs/ART-DIRECTION.md"] || designChanged || marker.kit !== render
+        ? await writeArtDirection(scope, { name: p.name, vision: p.vision, spec: p.spec!, theme, render })
+        : null;
+    if (marker.kit !== render) {
+      Object.assign(files, await gameKitFiles({ render, theme, meta: { title: direction?.title ?? p.name, tagline: direction?.tagline ?? "" } }));
+      for (const old of ["game/loop.ts", "components/game-canvas.tsx"]) delete files[old];
+      if (files["package.json"]) files["package.json"] = withGameDependencies(files["package.json"], render);
+    } else if (designChanged) {
+      Object.assign(files, await gameThemeFiles(render, theme));
+    }
+    if (direction) files["docs/ART-DIRECTION.md"] = direction.markdown;
+  } else {
+    // `npx getdesign add <slug>`, done server-side: the template goes in as DESIGN.md, with a
+    // short brief of it that the builder keeps in context instead of the whole file.
+    if (!files["DESIGN.md"] || designChanged) files["DESIGN.md"] = await loadDesign(p.designSlug!);
+    if (!files["docs/DESIGN-BRIEF.md"] || designChanged) {
+      const brief = await designBrief(scope, { name: designName(p.designSlug!), markdown: files["DESIGN.md"] });
+      if (brief) files["docs/DESIGN-BRIEF.md"] = brief;
+      else delete files["docs/DESIGN-BRIEF.md"];
+    }
+    if (game) {
+      for (const [path, content] of Object.entries(gameFiles())) files[path] ??= content;
+    }
   }
   if (neonOf(p)) {
     for (const [path, content] of Object.entries(databaseFiles())) files[path] ??= content;
@@ -151,9 +178,9 @@ export async function prepareApp(
   const labels = Object.fromEntries(Object.entries(DICTIONARIES.en.spec.items).map(([k, v]) => [k, v.label]));
   const vision = p.vision.replace(/\s+/g, " ");
   files["docs/SPEC.md"] = `# Spec: ${p.name}\n\n> ${vision}\n\n${specText(spec, labels)}\n`;
-  files["AGENTS.md"] = agentsMd({ kind: spec.kind, designName: designName(p.designSlug!), database: Boolean(neonOf(p)) });
+  files["AGENTS.md"] = agentsMd({ kind: spec.kind, designName: designName(p.designSlug!), database: Boolean(neonOf(p)), kit: render });
   files[".neuroneus.json"] =
-    JSON.stringify({ kind: spec.kind, design: p.designSlug, database: Boolean(neonOf(p)) }, null, 2) + "\n";
+    JSON.stringify({ kind: spec.kind, design: p.designSlug, database: Boolean(neonOf(p)), ...(render ? { kit: render } : {}) }, null, 2) + "\n";
 
   await commitChanges(
     p.repoFullName!,

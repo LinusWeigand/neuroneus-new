@@ -47,7 +47,11 @@ Vision: ${ctx.vision}
 Spec (complete; build exactly this, nothing it puts out of scope):
 ${ctx.spec}
 
-Design system: ${ctx.designName ? `${ctx.designName} (DESIGN.md in the repo). Every task builds to it.` : "none."}
+${
+      ctx.kit
+        ? `Art direction: ${ctx.designName} (docs/ART-DIRECTION.md, tokens in game/theme.ts). The game is built on the ${ctx.kit.toUpperCase()} game kit (docs/GAME-KIT.md): the title screen, HUD, pause, game over, touch controls, sound, backdrop, art primitives and juice already exist; ${ctx.kit === "2d" ? "game/scenes/play-scene.ts" : "game/world.ts"} is a SAMPLE game to replace.`
+        : `Design system: ${ctx.designName ? `${ctx.designName} (DESIGN.md in the repo). Every task builds to it.` : "none."}`
+    }
 
 Decisions the human made (respect them):
 ${ctx.decisions.map((d) => `- ${d.header}: ${d.choice}`).join("\n") || "None yet."}
@@ -61,10 +65,14 @@ Rules:
 - 1 to ${max} tasks, in build order, highest user value first. Each task is a vertical slice that is deployable on its own and visibly improves the app.
 - ${
       args.round <= 1
-        ? ctx.kind === "web_game"
+        ? ctx.kit
+          ? `The first task replaces the sample with the real core loop, playable end to end and already beautiful: the player, the world and the main objects built from the kit's art primitives as docs/ART-DIRECTION.md describes, juice and sound on every event, game/config.ts (title, tagline, controls, lives, touch buttons) updated. Then the remaining mechanics and content, then difficulty and progression. The last task of the round is always a polish pass: every event has feedback and sound, idle animations, a lively world, the first ten seconds easy and fun, touch controls right.`
+          : ctx.kind === "web_game"
           ? "The first task makes the game playable end to end on the canvas shell: start screen, the core loop, game over and restart, styled with DESIGN.md's tokens. Later tasks add mechanics, progression and feedback."
           : "The first task sets up DESIGN.md's tokens and fonts, and replaces the placeholder with the real app shell and the core feature, so the human sees the product take shape immediately."
-        : "Build on what's shipped. Don't redo it."
+        : ctx.kit
+          ? "Build on what's shipped. Don't redo it. Keep the polish: every new mechanic comes with its art, feedback and sound."
+          : "Build on what's shipped. Don't redo it."
     }
 - Keep each task small enough for one engineer in one sitting: a few files, no more.
 - MVP scope only. No authentication, payments, email or third-party APIs that need keys, unless the human decided otherwise.

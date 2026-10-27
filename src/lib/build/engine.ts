@@ -12,6 +12,7 @@ import type { BuildActivity, BuildDTO, BuildEventDTO, BuildEventKind, BuildNoteD
 import { recordUsage, roundTokenBudget } from "@/lib/usage";
 import { type BuildContext, type BuilderReport, runBuilder } from "./agent";
 import { clearBlobs, loadBlob, saveBlobs } from "./blobs";
+import { isArtSlug } from "@/lib/design/art";
 import { designName } from "@/lib/design/catalog";
 import { DICTIONARIES } from "@/lib/i18n/dictionaries";
 import { specComplete, specText } from "@/lib/spec/templates";
@@ -645,6 +646,7 @@ async function buildContext(project: ProjectRow): Promise<BuildContext> {
     kind: project.spec?.kind ?? "web_app",
     spec: project.spec ? specText(project.spec, SPEC_LABELS) : "",
     designName: project.designSlug ? designName(project.designSlug) : null,
+    kit: project.spec?.kind === "web_game" && isArtSlug(project.designSlug) ? (project.spec.render ?? "2d") : null,
     database: Boolean(project.neonProjectId),
     decisions: decisions.map((d) => ({ header: d.header, choice: d.choice })),
     shipped,

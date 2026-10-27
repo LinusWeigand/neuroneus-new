@@ -292,7 +292,8 @@ export function withNeonDependency(packageJson: string) {
   }
 }
 
-export function agentsMd(input: { kind: SpecKind; designName: string | null; database: boolean }) {
+export function agentsMd(input: { kind: SpecKind; designName: string | null; database: boolean; kit?: "2d" | "3d" | null }) {
+  if (input.kind === "web_game" && input.kit) return gameAgentsMd({ ...input, kit: input.kit });
   const design = input.designName
     ? `## Design: follow DESIGN.md strictly
 This app is built to the ${input.designName} design system in \`DESIGN.md\` (\`docs/DESIGN-BRIEF.md\` has its tokens and rules in short). Every screen follows it:
@@ -346,5 +347,51 @@ ${game}
 - No new dependencies unless clearly necessary; pin exact versions in package.json.
 - Accessible markup: labels for inputs, buttons for actions, sensible headings, visible focus.
 - Handle empty, loading and error states the user can see. Works on phones and desktops.
+`;
+}
+
+/** Conventions for a game built on the game kit (docs/GAME-KIT.md has the kit's API). */
+function gameAgentsMd(input: { designName: string | null; database: boolean; kit: "2d" | "3d" }) {
+  const engine = input.kit === "2d" ? "Phaser 3.90 (2D)" : "Three.js 0.186 (3D)";
+  return `# Conventions for the agents building this game
+
+Stack (fixed): Next.js 16 (App Router), React 19, TypeScript (strict), ${engine}, Tailwind CSS 4${input.database ? ", Neon Postgres" : ""}, deployed on Vercel.
+The spec is in \`docs/SPEC.md\`. Build exactly what it says; don't add features it puts out of scope.
+The game is deployed automatically after every task; a failing build blocks the deploy.
+
+## The bar: a polished indie game, not a prototype
+Players judge a game in its first ten seconds, by how it looks and feels. Every task leaves the
+game looking finished: themed art, motion with weight, feedback on every event, sound.
+
+## Game kit: read docs/GAME-KIT.md
+The game is built on the kit: the shell (title, HUD, pause, game over, touch controls) in
+\`components/game/\`, game state in \`game/state.ts\`, input in \`game/input.ts\`, sound in
+\`game/audio.ts\`, and the engine kit in \`game/kit/\` (art primitives, juice, ${input.kit === "2d" ? "backdrop, bloom" : "stage with lighting, sky, fog and bloom, models"}).
+The game itself lives in ${input.kit === "2d" ? "\`game/scenes/\`" : "\`game/world.ts\`"}; it ships as a SAMPLE to replace with the real game.
+- \`game/\` runs only in the browser: never import it, or the engine, from a page, layout or server code.
+- Menus and HUD text are HTML (the shell), never drawn in the canvas. Report through \`game/state.ts\`.
+- Keep \`game/config.ts\` (title, tagline, lives, controls, touch buttons) in sync with the game.
+
+## Art direction: ${input.designName ?? "the theme"}
+\`docs/ART-DIRECTION.md\` says what everything looks like; \`game/theme.ts\` has the tokens.
+- Colors only from \`THEME.palette\`, by role: primary = the player, danger = enemies and hazards,
+  accent = rewards, secondary = world accents, good = health. Never hard-code colors.
+- Every sprite or mesh comes from the kit's art primitives (shaded, outlined, highlighted),
+  never plain rectangles, circles or boxes, never emoji.
+- No external image, model or audio files: the kit draws and synthesizes everything.
+
+${
+  input.database
+    ? `## Data
+- \`import { sql } from "@/lib/db"\` in server code only, with tagged templates. Schema changes go into \`db/schema.sql\` (idempotent). Pages that read the database: \`export const dynamic = "force-dynamic";\`
+`
+    : `## Data
+- No server database. The best score is saved on the device by the kit; persist anything else in \`localStorage\` (guarded).
+`
+}
+## Code
+- TypeScript strict; check every import exists. Keep allocations out of per-frame code.
+- No new dependencies unless clearly necessary; pin exact versions.
+- Works with keyboard and touch, on phones and desktops; pauses when the tab is hidden.
 `;
 }

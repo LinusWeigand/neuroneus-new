@@ -40,7 +40,7 @@ export const WEB_GAME_SPEC: SpecItemDef[] = [
   { key: "mechanics", required: true, guide: "The key rules and things in the game (player, enemies, items, obstacles) and how they interact." },
   { key: "progression", required: true, guide: "How difficulty and variety evolve (levels, waves, speed-up) and how long a session lasts." },
   { key: "feedback", required: true, guide: "What the player sees and hears in response: score, HUD, effects, sounds, start and game-over screens." },
-  { key: "visual_style", required: true, guide: "The visual style and perspective (pixel art, flat vector, neon, hand-drawn; top-down, side view) and mood." },
+  { key: "visual_style", required: true, guide: "2D or 3D, the visual style (pixel art, cute and round, neon, hand-drawn, low-poly...), the perspective (side view, top-down, third-person) and the mood." },
   { key: "players_saving", required: true, guide: "Single player or local multiplayer, and what is remembered: nothing, local high score, or an online leaderboard or saves shared between players." },
   { key: "out_of_scope", required: true, guide: "What is explicitly NOT in the first version (stretch ideas)." },
   { key: "theme_language", required: false, guide: "Theme or story, and the language of any in-game text." },
@@ -57,6 +57,8 @@ export type ProjectSpec = {
   answers: Record<string, SpecAnswer>;
   /** Whether the app must store data on a server (decides the Neon database). */
   needsDatabase: boolean | null;
+  /** Games: built in 2D (Phaser) or 3D (Three.js). Decided with the art direction. */
+  render?: "2d" | "3d" | null;
 };
 
 export const EMPTY_SPEC: ProjectSpec = { kind: null, answers: {}, needsDatabase: null };

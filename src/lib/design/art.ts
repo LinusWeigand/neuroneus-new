@@ -329,7 +329,7 @@ export const ART_IDS = ART_THEMES.map((t) => t.id);
 
 const ART_PREFIX = "art:";
 
-export function isArtSlug(slug: string | null | undefined): slug is string {
+export function isArtSlug(slug: string | null | undefined): boolean {
   return Boolean(slug?.startsWith(ART_PREFIX));
 }
 

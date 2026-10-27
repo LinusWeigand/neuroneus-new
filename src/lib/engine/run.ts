@@ -10,6 +10,7 @@ import { infraConfigured } from "@/lib/build/infra";
 import { getDecisions, getMessages, isCancelRequested, toDecisionDTO, toMessageDTO } from "@/lib/data";
 import { db, schema } from "@/lib/db";
 import type { ProjectRow } from "@/lib/db/schema";
+import { isArtSlug } from "@/lib/design/art";
 import { designName } from "@/lib/design/catalog";
 import { chooseDesign } from "@/lib/design/choose";
 import { appendDecisions } from "@/lib/github";
@@ -825,9 +826,13 @@ async function specCompleted(args: { project: ProjectRow; spec: ProjectSpec; run
   const { project, spec, runId, emit } = args;
   try {
     let slug = project.designSlug;
-    if (!slug) {
-      slug = await chooseDesign({ projectId: project.id }, { name: project.name, vision: project.vision, spec });
-      await db.update(schema.projects).set({ designSlug: slug }).where(eq(schema.projects.id, project.id));
+    if (!slug || (spec.kind === "web_game" && !isArtSlug(slug))) {
+      const chosen = await chooseDesign({ projectId: project.id }, { name: project.name, vision: project.vision, spec });
+      slug = chosen.slug;
+      await db
+        .update(schema.projects)
+        .set({ designSlug: slug, ...(chosen.render ? { spec: { ...spec, render: chosen.render } } : {}) })
+        .where(eq(schema.projects.id, project.id));
     }
     const kind = spec.kind ?? "web_app";
     const note = await insertMessage({

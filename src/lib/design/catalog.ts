@@ -1,7 +1,9 @@
 // The design systems a generated app can be built with: every DESIGN.md listed in
 // https://github.com/VoltAgent/awesome-claude-design, grouped as in that list. The files
 // ship in the `getdesign` npm package (the same source as `npx getdesign add <slug>`).
-// Client-safe: no file access here (see ./load.ts).
+// Client-safe: no file access here (see ./load.ts). Games use art directions instead (./art.ts).
+
+import { artTheme, isArtSlug } from "./art";
 
 export const DESIGN_CATALOG: { category: string; slugs: string[] }[] = [
   { category: "AI & LLM Platforms", slugs: ["claude", "cohere", "elevenlabs", "minimax", "mistral.ai", "ollama", "opencode.ai", "replicate", "runwayml", "together.ai", "voltagent", "x.ai"] },
@@ -41,10 +43,11 @@ const NAMES: Record<string, string> = {
 };
 
 export function designName(slug: string) {
+  if (isArtSlug(slug)) return artTheme(slug)?.name ?? slug.slice(4);
   return NAMES[slug] ?? slug.charAt(0).toUpperCase() + slug.slice(1);
 }
 
-/** The public preview page of a design on getdesign.md. */
+/** The public preview page of a design on getdesign.md. Game art directions have none. */
 export function designUrl(slug: string) {
-  return `https://getdesign.md/${slug}/design-md`;
+  return isArtSlug(slug) ? null : `https://getdesign.md/${slug}/design-md`;
 }

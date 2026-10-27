@@ -26,6 +26,8 @@ export type BuildContext = {
   /** The complete spec as text. */
   spec: string;
   designName: string | null;
+  /** Games on the game kit: 2D (Phaser) or 3D (Three.js). Null for apps and older games. */
+  kit: "2d" | "3d" | null;
   database: boolean;
   decisions: { header: string; choice: string }[];
   shipped: string[];
@@ -45,7 +47,7 @@ const MAX_FILE_CHARS = 150_000;
 const MAX_STEPS = 30;
 const PROTECTED = /^(\.git\/|node_modules\/|\.next\/|\.env)/;
 /** Preloaded into the instructions, so the builder never spends a step reading them. */
-const PRELOADED = ["AGENTS.md", "docs/DESIGN-BRIEF.md"];
+const PRELOADED = ["AGENTS.md", "docs/DESIGN-BRIEF.md", "docs/ART-DIRECTION.md", "docs/GAME-KIT.md"];
 /** Compact the conversation once it's this long (characters, roughly 4 per token). */
 const COMPACT_AT = 200_000;
 /** Messages at the end that always stay verbatim. */
@@ -92,7 +94,9 @@ function instructions(
   const preloaded = PRELOADED.filter((p) => files[p])
     .map((p) => `<file path="${p}">\n${files[p].trim()}\n</file>`)
     .join("\n\n");
-  const design = !ctx.designName
+  const design = ctx.kit
+    ? `the ${ctx.designName ?? "theme's"} art direction. docs/ART-DIRECTION.md (below) says what every character, object, effect and screen looks like; game/theme.ts has the tokens; docs/GAME-KIT.md (below) is the kit you build with. The result must look and feel like a polished indie game: kit art primitives with the theme's palette roles, motion with weight, feedback and sound on every event. Never plain shapes, emoji or hard-coded colors.`
+    : !ctx.designName
     ? "keep it clean and consistent."
     : brief
       ? `the ${ctx.designName} design system. docs/DESIGN-BRIEF.md (below) has its tokens and rules; follow it strictly for every pixel and never invent colors or styles outside it. DESIGN.md has the full system: read the section you need (search it) only when the brief doesn't cover a component.`
@@ -108,7 +112,11 @@ How to work:
 - Make complete, focused changes. The app must build under strict TypeScript and the feature must work end to end, including empty, loading and error states.
 - You cannot run commands. Be careful with imports, types and Next.js 16 APIs; check that every import you add exists.
 - Use edit_file for small changes and write_file for new files or full rewrites.
-- Work in few steps: batch reads, then write. Don't re-read a file you just wrote.
+- Work in few steps: batch reads, then write. Don't re-read a file you just wrote.${
+    ctx.kit
+      ? "\n- Game: the kit's files are mapped below; read the ones you build on (e.g. the sample scene, kit/textures, kit/fx) before writing. Before you finish, check the quality bar in docs/GAME-KIT.md and fix what falls short."
+      : ""
+  }
 - When done, call finish with one sentence for the product owner: what they can now do in the app, in plain product language, no code, file or library names. Write it in ${ctx.language}.
 
 Project: ${ctx.name}

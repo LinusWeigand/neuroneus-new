@@ -143,19 +143,28 @@ function SpecSection({ project }: { project: ProjectDTO }) {
       ) : (
         <p className="mt-3 text-caption text-body">{t.spec.gateKind}</p>
       )}
-      {project.designSlug && (
-        <a
-          href={designUrl(project.designSlug)}
-          target="_blank"
-          rel="noreferrer"
-          className="mt-4 flex items-center justify-between gap-3 rounded-lg border border-hairline bg-surface-card px-3.5 py-2.5 transition-shadow hover:shadow-soft"
-        >
-          <span className="text-caption text-muted">{t.spec.design}</span>
-          <span className="text-body-sm font-medium text-ink">
-            {designName(project.designSlug)} <span aria-hidden>↗</span>
-          </span>
-        </a>
-      )}
+      {project.designSlug &&
+        (designUrl(project.designSlug) ? (
+          <a
+            href={designUrl(project.designSlug)!}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-4 flex items-center justify-between gap-3 rounded-lg border border-hairline bg-surface-card px-3.5 py-2.5 transition-shadow hover:shadow-soft"
+          >
+            <span className="text-caption text-muted">{t.spec.design}</span>
+            <span className="text-body-sm font-medium text-ink">
+              {designName(project.designSlug)} <span aria-hidden>↗</span>
+            </span>
+          </a>
+        ) : (
+          <div className="mt-4 flex items-center justify-between gap-3 rounded-lg border border-hairline bg-surface-card px-3.5 py-2.5">
+            <span className="text-caption text-muted">{t.spec.design}</span>
+            <span className="text-body-sm font-medium text-ink">
+              {designName(project.designSlug)}
+              {project.spec?.render ? ` · ${project.spec.render.toUpperCase()}` : ""}
+            </span>
+          </div>
+        ))}
     </section>
   );
 }
